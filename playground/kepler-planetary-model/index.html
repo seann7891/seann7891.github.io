@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>克卜勒行星模型測試 | Physics_Playground</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <a href="/playground/" style="color: white;">← 回 Physics_Playground</a>
+        <h1 style="font-size: 1.1rem; margin: 0.5rem 0;">克卜勒行星模型測試</h1>
+        <button id="clear">清除所有行星</button>
+        <button id="clearTrails">清除軌跡</button>
+        <div>
+            <label for="trailLength">軌跡長度: </label>
+            <input type="range" id="trailLength" min="50" max="1000" value="200">
+            <span id="trailLengthValue">200</span>
+        </div>
+        <div>
+            <label for="timeScale">時間尺度: </label>
+            <input type="range" id="timeScale" min="1" max="100" value="30">
+            <span id="timeScaleValue">30</span>
+        </div>
+        <div>
+            <label for="planetSize">行星大小: </label>
+            <input type="range" id="planetSize" min="2" max="20" value="5">
+            <span id="planetSizeValue">5</span>
+        </div>
+        <div>
+            <label for="planetColor">行星顏色: </label>
+            <select id="planetColor">
+                <option value="random" selected>隨機</option>
+                <option value="#FF5733">紅色</option>
+                <option value="#33FF57">綠色</option>
+                <option value="#3357FF">藍色</option>
+                <option value="#FFFF33">黃色</option>
+                <option value="#FF33FF">粉色</option>
+                <option value="#33FFFF">青色</option>
+                <option value="#FFFFFF">白色</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>使用說明：</h3>
+        <p>1. 單擊畫面的任意位置來創建一個行星</p>
+        <p>2. 按住滑鼠並拖動來設定行星的初始速度（方向和大小）</p>
+        <p>3. 拖動時會看到：</p>
+        <p>   - 白色線：表示速度向量</p>
+        <p>   - 紅色箭頭：表示萬有引力方向</p>
+        <p>   - 白色虛線：表示預測的前600步軌跡</p>
+        <p>4. 釋放滑鼠按鈕讓行星開始運動</p>
+        <p>5. 行星會受到太陽（中心點）的引力影響</p>
+        <p>6. 使用上方控制項調整模擬參數</p>
+    </div>
+    
+    <script>
+        // 初始化畫布
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 設置畫布大小為視窗大小
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // 中心點（太陽位置）
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        // 引力常數（可調整）
+        const G = 9.8;
+        
+        // 儲存行星的陣列
+        let planets = [];
+        // 是否正在創建新行星
+        let creating = false;
+        // 新行星的起始位置
+        let startX, startY;
+        // 新行星的速度向量
+        let velocityX, velocityY;
+        // 預測軌跡點
+        let predictedPath = [];
+        // 萬有引力向量
+        let gravityX, gravityY;
+        
+        // 控制元素
+        const clearBtn = document.getElementById('clear');
+        const clearTrailsBtn = document.getElementById('clearTrails');
+        const trailLengthSlider = document.getElementById('trailLength');
+        const trailLengthValue = document.getElementById('trailLengthValue');
+        const timeScaleSlider = document.getElementById('timeScale');
+        const timeScaleValue = document.getElementById('timeScaleValue');
+        const planetSizeSlider = document.getElementById('planetSize');
+        const planetSizeValue = document.getElementById('planetSizeValue');
+        const planetColorSelect = document.getElementById('planetColor');
+        
+        // 行星類別
+        class Planet {
+            constructor(x, y, vx, vy, color, size) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.size = size;
+                this.trail = [];
+                this.trailLength = parseInt(trailLengthSlider.value);
+            }
+            
+            // 更新行星位置
+            update(timeScale) {
+                // 計算與太陽的距離
+                const dx = centerX - this.x;
+                const dy = centerY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 計算引力
+                const force = G * 1000 / (distance * distance);
+                const fx = force * dx / distance;
+                const fy = force * dy / distance;
+                
+                // 更新速度
+                this.vx += fx * timeScale / 60;
+                this.vy += fy * timeScale / 60;
+                
+                // 保存當前位置到軌跡
+                this.trail.push({x: this.x, y: this.y});
+                
+                // 如果軌跡太長，移除最舊的點
+                if (this.trail.length > this.trailLength) {
+                    this.trail.shift();
+                }
+                
+                // 更新位置
+                this.x += this.vx * timeScale / 60;
+                this.y += this.vy * timeScale / 60;
+            }
+            
+            // 繪製行星和軌跡
+            draw() {
+                // 繪製軌跡
+                ctx.beginPath();
+                for (let i = 0; i < this.trail.length; i++) {
+                    if (i === 0) {
+                        ctx.moveTo(this.trail[i].x, this.trail[i].y);
+                    } else {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    // 設置軌跡漸變透明度
+                    const alpha = i / this.trail.length;
+                    ctx.strokeStyle = this.color.replace('rgb', 'rgba').replace(')', `,${alpha})`);
+                    ctx.lineWidth = 1;
+                }
+                ctx.stroke();
+                
+                // 繪製行星
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+            
+            // 更新軌跡長度
+            updateTrailLength(length) {
+                this.trailLength = length;
+                if (this.trail.length > length) {
+                    this.trail = this.trail.slice(this.trail.length - length);
+                }
+            }
+            
+            // 清除軌跡
+            clearTrail() {
+                this.trail = [];
+            }
+        }
+        
+        // 生成隨機顏色
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+        
+        // 繪製太陽
+        function drawSun() {
+            // 太陽光暈效果
+            const gradient = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, 40);
+            gradient.addColorStop(0, 'rgba(255, 255, 100, 1)');
+            gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 40, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 太陽核心
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, Math.PI * 2);
+            ctx.fillStyle = 'yellow';
+            ctx.fill();
+        }
+        
+        // 更新和繪製函數
+        function update() {
+            // 清除畫布
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製太陽
+            drawSun();
+            
+            // 時間尺度
+            const timeScale = parseInt(timeScaleSlider.value);
+            
+            // 更新和繪製所有行星
+            planets.forEach(planet => {
+                planet.update(timeScale);
+                planet.draw();
+            });
+            
+            // 如果正在創建新行星，繪製預覽線和預測軌跡
+            if (creating) {
+                // 繪製速度向量
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(startX + velocityX * 10, startY + velocityY * 10);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 繪製引力方向箭頭
+                if (gravityX !== undefined && gravityY !== undefined) {
+                    const gForce = Math.sqrt(gravityX * gravityX + gravityY * gravityY);
+                    const normalizedGX = gravityX / gForce * 40; // 標準化長度
+                    const normalizedGY = gravityY / gForce * 40;
+                    
+                    // 箭頭主體
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX + normalizedGX, startY + normalizedGY);
+                    ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // 箭頭頭部
+                    const angle = Math.atan2(normalizedGY, normalizedGX);
+                    const arrowSize = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(startX + normalizedGX, startY + normalizedGY);
+                    ctx.lineTo(startX + normalizedGX - arrowSize * Math.cos(angle - Math.PI / 6), 
+                              startY + normalizedGY - arrowSize * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(startX + normalizedGX - arrowSize * Math.cos(angle + Math.PI / 6), 
+                              startY + normalizedGY - arrowSize * Math.sin(angle + Math.PI / 6));
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
+                    ctx.fill();
+                }
+                
+                // 繪製預測軌跡
+                if (predictedPath.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(predictedPath[0].x, predictedPath[0].y);
+                    for (let i = 1; i < predictedPath.length; i++) {
+                        ctx.lineTo(predictedPath[i].x, predictedPath[i].y);
+                    }
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; // 固定不透明度
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                
+                // 繪製預覽行星
+                ctx.beginPath();
+                ctx.arc(startX, startY, parseInt(planetSizeSlider.value), 0, Math.PI * 2);
+                ctx.fillStyle = planetColorSelect.value === 'random' ? getRandomColor() : planetColorSelect.value;
+                ctx.fill();
+            }
+            
+            // 繼續動畫
+            requestAnimationFrame(update);
+        }
+        
+        // 鼠標按下事件 - 開始創建行星
+        canvas.addEventListener('mousedown', (e) => {
+            startX = e.clientX;
+            startY = e.clientY;
+            velocityX = 0;
+            velocityY = 0;
+            creating = true;
+        });
+        
+        // 計算預測軌跡
+        function calculatePredictedPath(x, y, vx, vy) {
+            const timeScale = parseInt(timeScaleSlider.value);
+            const predictionSteps = 600; // 預測600步
+            const path = [];
+            
+            let predX = x;
+            let predY = y;
+            let predVx = vx;
+            let predVy = vy;
+            
+            for (let i = 0; i < predictionSteps; i++) {
+                // 計算與太陽的距離
+                const dx = centerX - predX;
+                const dy = centerY - predY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 如果距離太小，預測終止（行星撞到太陽）
+                if (distance < 30) {
+                    break;
+                }
+                
+                // 計算引力
+                const force = G * 1000 / (distance * distance);
+                const fx = force * dx / distance;
+                const fy = force * dy / distance;
+                
+                // 更新速度
+                predVx += fx * timeScale / 60;
+                predVy += fy * timeScale / 60;
+                
+                // 更新位置
+                predX += predVx * timeScale / 60;
+                predY += predVy * timeScale / 60;
+                
+                // 添加到路徑
+                path.push({x: predX, y: predY});
+                
+                // 如果行星飛出太遠，停止預測
+                if (predX < -canvas.width || predX > canvas.width * 2 || 
+                    predY < -canvas.height || predY > canvas.height * 2) {
+                    break;
+                }
+            }
+            
+            return path;
+        }
+        
+        // 計算萬有引力
+        function calculateGravity(x, y) {
+            const dx = centerX - x;
+            const dy = centerY - y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const force = G * 1000 / (distance * distance);
+            const fx = force * dx / distance;
+            const fy = force * dy / distance;
+            
+            return {x: fx, y: fy};
+        }
+        
+        // 鼠標移動事件 - 更新速度向量和預測軌跡
+        canvas.addEventListener('mousemove', (e) => {
+            if (creating) {
+                velocityX = (e.clientX - startX) * 0.05;
+                velocityY = (e.clientY - startY) * 0.05;
+                
+                // 計算萬有引力
+                const gravity = calculateGravity(startX, startY);
+                gravityX = gravity.x;
+                gravityY = gravity.y;
+                
+                // 計算預測軌跡
+                predictedPath = calculatePredictedPath(startX, startY, velocityX, velocityY);
+            }
+        });
+        
+        // 鼠標鬆開事件 - 創建行星
+        canvas.addEventListener('mouseup', (e) => {
+            if (creating) {
+                // 獲取選擇的顏色
+                let color;
+                if (planetColorSelect.value === 'random') {
+                    color = getRandomColor();
+                } else {
+                    color = planetColorSelect.value;
+                }
+                
+                // 創建新行星
+                const size = parseInt(planetSizeSlider.value);
+                const planet = new Planet(startX, startY, velocityX, velocityY, color, size);
+                planets.push(planet);
+                
+                // 重置預測變量
+                creating = false;
+                predictedPath = [];
+                gravityX = undefined;
+                gravityY = undefined;
+            }
+        });
+        
+        // 清除所有行星
+        clearBtn.addEventListener('click', () => {
+            planets = [];
+        });
+        
+        // 清除所有軌跡
+        clearTrailsBtn.addEventListener('click', () => {
+            planets.forEach(planet => planet.clearTrail());
+        });
+        
+        // 更新軌跡長度顯示
+        trailLengthSlider.addEventListener('input', () => {
+            trailLengthValue.textContent = trailLengthSlider.value;
+            planets.forEach(planet => planet.updateTrailLength(parseInt(trailLengthSlider.value)));
+        });
+        
+        // 更新時間尺度顯示
+        timeScaleSlider.addEventListener('input', () => {
+            timeScaleValue.textContent = timeScaleSlider.value;
+        });
+        
+        // 更新行星大小顯示
+        planetSizeSlider.addEventListener('input', () => {
+            planetSizeValue.textContent = planetSizeSlider.value;
+        });
+        
+        // 窗口大小調整事件
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // 開始動畫
+        update();
+    </script>
+</body>
+</html>

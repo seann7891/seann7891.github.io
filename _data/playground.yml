@@ -15,10 +15,18 @@ categories:
     name: 探究與實作
 
 changelog:
+  - date: 2026-09-15
+    text: 新增「克卜勒行星模型測試」單元。
   - date: 2026-09-14
     text: Physics_Playground 上線。
 
 apps:
+  - title: 克卜勒行星模型測試
+    slug: kepler-planetary-model
+    category: mechanics
+    desc: 拖曳設定行星的初始速度，觀察太陽引力下的運動、預測軌跡，並調整時間尺度與軌跡長度。
+    thumb: ""
+    tags: [克卜勒, 行星運動, 萬有引力, 軌道]
   - title: 範例頁（確認路徑用）
     slug: demo                 # 對應 /playground/demo/
     category: mechanics
