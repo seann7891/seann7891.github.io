@@ -1,0 +1,27 @@
+# Physics_Playground 的全部資料。新增模擬器只改這個檔 + 放資料夾。
+
+categories:
+  - id: mechanics
+    name: 力學
+  - id: waves
+    name: 波動與光
+  - id: em
+    name: 電與磁
+  - id: modern
+    name: 現代物理
+  - id: data
+    name: 實驗與數據
+  - id: methods
+    name: 探究與實作
+
+changelog:
+  - date: 2026-09-14
+    text: Physics_Playground 上線。
+
+apps:
+  - title: 範例頁（確認路徑用）
+    slug: demo                 # 對應 /playground/demo/
+    category: mechanics
+    desc: 用來確認純 HTML 檔能被原樣輸出的測試頁，內容填好後可刪除。
+    thumb: ""                  # 留空會顯示分類色塊；有圖填 /assets/img/playground/xxx.png
+    tags: [test]

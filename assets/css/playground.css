@@ -1,0 +1,77 @@
+/* Physics_Playground — 淺色：計算紙方格；深色：黑板 */
+:root{
+  --paper:#F6F8FA; --grid:#D9E1EA; --ink:#1B2A41; --ink-2:#4A5A70;
+  --line:#C5D0DC; --accent:#B33A1F; --card:#FFFFFF;
+  --c-mechanics:#B33A1F; --c-waves:#1F6FB3; --c-em:#C08A00; --c-modern:#5B3FA0; --c-data:#2A7F62; --c-methods:#6B7280;
+}
+[data-theme="dark"]{
+  --paper:#1F2A27; --grid:#2A3733; --ink:#EDEBE3; --ink-2:#B9B7AE;
+  --line:#3A4843; --accent:#F0B36B; --card:#26322E;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;color:var(--ink);font:16px/1.65 "Noto Sans TC",system-ui,sans-serif;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+a{color:inherit;text-decoration:none}
+.pg-top{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.9rem 1.5rem;border-bottom:1px solid var(--line);background:var(--paper)}
+.pg-home{font-weight:500}
+.pg-top-actions{display:flex;gap:.5rem}
+#pg-search{padding:.4rem .7rem;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);min-width:200px}
+#pg-theme{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:4px;width:2.2rem;cursor:pointer}
+.pg-hero{max-width:1100px;margin:0 auto;padding:3rem 1.5rem 1rem}
+.pg-hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:700;letter-spacing:-.01em;margin:0 0 .5rem}
+.pg-hero p{max-width:34em;color:var(--ink-2);margin:0}
+.pg-hero-curve{width:100%;max-width:600px;height:auto;color:var(--accent);margin-top:1rem;opacity:.85}
+.pg-body{max-width:1100px;margin:0 auto;padding:1rem 1.5rem 4rem;display:grid;grid-template-columns:200px 1fr;gap:2rem}
+.pg-side{position:sticky;top:1rem;align-self:start}
+.pg-side nav{display:flex;flex-direction:column;gap:.15rem}
+.pg-cat{padding:.35rem .6rem;border-left:2px solid transparent;color:var(--ink-2)}
+.pg-cat.is-active,.pg-cat:hover{color:var(--ink);border-left-color:var(--accent)}
+.pg-log{margin-top:1.5rem;font-size:.9rem;color:var(--ink-2)}
+.pg-log summary{cursor:pointer;color:var(--ink)}
+.pg-log ul{list-style:none;padding:0;margin:.5rem 0 0}
+.pg-log li{margin-bottom:.5rem}
+.pg-log time{display:block;font-size:.8rem;opacity:.7}
+.pg-group{margin-bottom:2.5rem}
+.pg-group h2{font-size:1.15rem;font-weight:500;margin:0 0 .75rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+.pg-list{list-style:none;padding:0;margin:0;display:grid;gap:.75rem}
+.pg-app a{display:grid;grid-template-columns:120px 1fr;gap:1rem;padding:.75rem;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.pg-app a:hover{border-color:var(--accent)}
+.pg-app img,.pg-thumb-blank{width:120px;height:80px;object-fit:cover;border-radius:4px;display:block}
+.pg-thumb-blank{background:var(--c-methods)}
+.pg-thumb-blank[data-cat="mechanics"]{background:var(--c-mechanics)}
+.pg-thumb-blank[data-cat="waves"]{background:var(--c-waves)}
+.pg-thumb-blank[data-cat="em"]{background:var(--c-em)}
+.pg-thumb-blank[data-cat="modern"]{background:var(--c-modern)}
+.pg-thumb-blank[data-cat="data"]{background:var(--c-data)}
+.pg-app-text{display:flex;flex-direction:column;gap:.15rem}
+.pg-app-text strong{font-weight:500}
+.pg-app-text span{color:var(--ink-2);font-size:.92rem}
+.pg-app-text small{color:var(--ink-2);opacity:.75}
+.pg-empty{color:var(--ink-2)}
+.pg-foot{text-align:center;padding:2rem;color:var(--ink-2);font-size:.85rem;border-top:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:760px){
+  .pg-body{grid-template-columns:1fr}
+  .pg-side{position:static}
+  .pg-side nav{flex-direction:row;flex-wrap:wrap}
+  .pg-app a{grid-template-columns:90px 1fr}
+  .pg-app img,.pg-thumb-blank{width:90px;height:60px}
+  #pg-search{min-width:140px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+[hidden]{display:none!important}
+.pg-main,.pg-app-text{min-width:0;overflow-wrap:anywhere}
+.pg-hero h1{overflow-wrap:anywhere}
+@media(max-width:480px){
+  .pg-top{flex-wrap:wrap;padding:.9rem 1rem}
+  .pg-top-actions{width:100%}
+  #pg-search{flex:1;min-width:0;width:100%}
+  #pg-theme{flex:0 0 2.5rem;min-height:2.5rem}
+  .pg-body,.pg-hero{padding-left:1rem;padding-right:1rem}
+}

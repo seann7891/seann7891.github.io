@@ -1,0 +1,60 @@
+{% assign data = site.data.playground %}
+
+<section class="pg-hero">
+  <h1>Physics_Playground</h1>
+  <p>把公式變成可以拉、可以撞、可以看的東西。每一個模擬都能直接投影上課用。</p>
+  <svg class="pg-hero-curve" viewBox="0 0 600 80" aria-hidden="true">
+    <path d="M0 40 C 50 0, 100 0, 150 40 S 250 80, 300 40 S 400 0, 450 40 S 550 80, 600 40" fill="none" stroke="currentColor" stroke-width="2"/>
+  </svg>
+</section>
+
+<div class="pg-body">
+  <aside class="pg-side">
+    <nav aria-label="分類">
+      <a href="{{ '/playground/' | relative_url }}" aria-current="true" class="pg-cat is-active" data-cat="all">全部</a>
+      {% for c in data.categories %}
+        <a href="#{{ c.id }}" class="pg-cat" data-cat="{{ c.id }}">{{ c.name }}</a>
+      {% endfor %}
+    </nav>
+    <details class="pg-log">
+      <summary>更新日誌</summary>
+      <ul>
+        {% for l in data.changelog %}
+          <li><time>{{ l.date }}</time>{{ l.text }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </aside>
+
+  <main class="pg-main">
+    {% for c in data.categories %}
+      {% assign items = data.apps | where: "category", c.id %}
+      {% if items.size > 0 %}
+      <section class="pg-group" id="{{ c.id }}" data-cat="{{ c.id }}">
+        <h2>{{ c.name }}</h2>
+        <ul class="pg-list">
+          {% for a in items %}
+          <li class="pg-app" data-search="{{ a.title | escape }} {{ a.desc | escape }} {{ a.tags | join: ' ' | escape }}">
+            {% assign app_url = a.url %}
+            {% unless app_url %}{% assign app_url = '/playground/' | append: a.slug | append: '/' | relative_url %}{% endunless %}
+            <a href="{{ app_url | escape }}">
+              {% if a.thumb != "" and a.thumb %}
+                <img src="{{ a.thumb | relative_url | escape }}" alt="" loading="lazy">
+              {% else %}
+                <span class="pg-thumb-blank" data-cat="{{ c.id }}"></span>
+              {% endif %}
+              <span class="pg-app-text">
+                <strong>{{ a.title | escape }}</strong>
+                <span>{{ a.desc | escape }}</span>
+                {% if a.tags %}<small>{{ a.tags | join: ', ' }}</small>{% endif %}
+              </span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    {% endfor %}
+    <p class="pg-empty" role="status" hidden>沒有符合的模擬器。換個關鍵字試試。</p>
+  </main>
+</div>

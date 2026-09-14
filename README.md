@@ -1,39 +1,33 @@
-# Chirpy Starter
+# seann7891.github.io
 
-[![Gem Version](https://img.shields.io/gem/v/jekyll-theme-chirpy)][gem]&nbsp;
-[![GitHub license](https://img.shields.io/github/license/cotes2020/chirpy-starter.svg?color=blue)][mit]
+Jekyll + Chirpy 部落格，附 Tools 與 Physics_Playground 兩個獨立區。
 
-A minimal, ready-to-use template for creating a blog with the [**Chirpy**][chirpy] Jekyll theme. Get up and running in minutes with all critical files pre-configured.
+## 新增一個模擬器（Physics_Playground）
+1. 建 `playground/<slug>/index.html`（純 HTML，**不要**加 front matter）
+2. 在 `_data/playground.yml` 的 `apps` 加一筆（title / slug / category / desc / thumb / tags）
+3. 在 `changelog` 加一行
+4. push
 
-## Why This Starter Exists
+## 新增一個工具（Tools）
+1. 建 `tools/<slug>/index.html`
+2. 在 `_data/tools.yml` 加一筆
+3. push
 
-When installing Chirpy through [RubyGems.org][gem], Jekyll can only read a subset of theme files (`_data`, `_layouts`, `_includes`, `_sass`, `assets`) and limited `_config.yml` options from the gem. As a result, users cannot enjoy the full out-of-the-box experience that Chirpy offers.
+## 新增分類
+改 `_data/playground.yml` 的 `categories`；若要專屬顏色，在 `assets/css/playground.css` 加一個 `--c-<id>` 變數與對應規則。
 
-To unlock all features, the following files must be present in your Jekyll site:
-
-```shell
-.
-├── _config.yml
-├── _plugins
-├── _tabs
-└── index.html
+## 本機預覽
+```
+bundle
+bundle exec jekyll s
 ```
 
-This starter bundles those files from the latest **Chirpy** release along with a [CD][CD] workflow, so you can start writing immediately.
-
-## Usage
-
-Check out the [theme's docs](https://github.com/cotes2020/jekyll-theme-chirpy/wiki).
-
-## Contributing
-
-This repository is automatically updated with new releases from the theme repository. If you encounter any issues or want to contribute to its improvement, please visit the [theme repository][chirpy] to provide feedback.
-
-## License
-
-This work is published under [MIT][mit] License.
-
-[gem]: https://rubygems.org/gems/jekyll-theme-chirpy
-[chirpy]: https://github.com/cotes2020/jekyll-theme-chirpy/
-[CD]: https://en.wikipedia.org/wiki/Continuous_deployment
-[mit]: https://github.com/cotes2020/chirpy-starter/blob/master/LICENSE
+## 網站與部署
+- 網址：https://seann7891.github.io
+- GitHub：https://github.com/seann7891/seann7891.github.io
+- 使用 Ruby 3.4 與 Jekyll Chirpy 7.6；主分支推送後由 GitHub Actions 建置、檢查內部連結並部署 GitHub Pages。
+- Pages 的 Source 使用 GitHub Actions。
+- Physics_Playground 導覽與頁面由 `_tabs/playground.md` 統一提供，內容在 `_includes/playground-content.html`。
+- Tools 目前保留附檔的施工中範例；尚未實作座位表工具。
+- `url` 可覆蓋工具或模擬器的預設路徑。
+- 未設定公開 email、頭像或留言服務。

@@ -1,0 +1,7 @@
+# 每新增一個工具就加一筆。slug 對應 /tools/<slug>/index.html
+# 若工具放在別處，用 url 覆蓋。status: wip 會顯示「施工中」而不給連結。
+
+- title: （範例）座位表產生器
+  slug: seating-chart
+  desc: 輸入班級名單，隨機或依條件排出座位表。
+  status: wip
