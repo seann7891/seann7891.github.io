@@ -27,7 +27,7 @@
   cats.forEach(function (c) {
     c.addEventListener('click', function (e) {
       e.preventDefault(); activeCat = c.dataset.cat;
-      cats.forEach(function (x) { x.classList.toggle('is-active', x === c); if (x === c) x.setAttribute('aria-current', 'true'); else x.removeAttribute('aria-current'); });
+      cats.forEach(function (x) { x.classList.toggle('is-active', x === c); x.setAttribute('aria-pressed', String(x === c)); });
       apply();
     });
   });

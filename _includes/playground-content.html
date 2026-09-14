@@ -11,9 +11,9 @@
 <div class="pg-body">
   <aside class="pg-side">
     <nav aria-label="分類">
-      <a href="{{ '/playground/' | relative_url }}" aria-current="true" class="pg-cat is-active" data-cat="all">全部</a>
+      <button type="button" aria-pressed="true" class="pg-cat is-active" data-cat="all">全部</button>
       {% for c in data.categories %}
-        <a href="#{{ c.id }}" class="pg-cat" data-cat="{{ c.id }}">{{ c.name }}</a>
+        <button type="button" aria-pressed="false" class="pg-cat" data-cat="{{ c.id }}">{{ c.name }}</button>
       {% endfor %}
     </nav>
     <details class="pg-log">
