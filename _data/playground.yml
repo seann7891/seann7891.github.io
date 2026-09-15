@@ -16,11 +16,19 @@ categories:
 
 changelog:
   - date: 2026-09-15
+    text: 波動與光新增「3D 水波干涉」模擬。
+  - date: 2026-09-15
     text: 新增「克卜勒行星模型測試」單元。
   - date: 2026-09-14
     text: Physics_Playground 上線。
 
 apps:
+  - title: 3D 水波干涉
+    slug: 3dwaterwave-interference
+    category: waves
+    desc: 調整兩個波源的距離、振幅、頻率與模擬速度，旋轉視角觀察立體水波干涉，並可暫停畫面。
+    thumb: ""
+    tags: [水波, 干涉, 波的疊加, 雙波源, 3D]
   - title: 克卜勒行星模型測試
     slug: kepler-planetary-model
     category: mechanics
