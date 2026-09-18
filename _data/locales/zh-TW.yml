@@ -10,6 +10,7 @@ layout:
 # The tabs of sidebar
 tabs:
   tools: Tools
+  physics_class: Physics_Class
   physics_playground: Physics_Playground
   # format: <filename_without_extension>: <value>
   home: 首頁
