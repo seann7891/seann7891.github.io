@@ -219,6 +219,7 @@ exclude:
   - "*.gem"
   - "*.gemspec"
   - docs
+  - tests
   - tools/run.sh
   - tools/test.sh
   - README.md
