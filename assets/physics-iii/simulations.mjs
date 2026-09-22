@@ -7,7 +7,8 @@ const defs={
  speed:[n('F','張力',25,100,1,25,' N'),n('mu','線密度',.01,.04,.001,.01,' kg/m')],
  reflection:[sel('boundary','邊界',{fixed:'固定端',free:'自由端',joint:'兩繩交界'},'fixed'),n('ratio','μ₂/μ₁',.25,4,.25,4)],
  superposition:[n('sign','第二脈衝振幅',-1,1,.1,-1)],
- standing:[sel('boundary','邊界',{fixed:'兩端固定',mixed:'固定—自由'},'fixed'),n('mode','模式序號',1,4,1,1)],
+ standingFormation:[n('probe','觀察位置 x',0,4,.05,1,' m')],
+ standing:[sel('boundary','邊界',{fixed:'兩端固定',mixed:'固定—自由'},'fixed'),n('mode','模式序號',1,4,1,1),n('L','弦長 L',1,2,.1,1,' m')],
  wavefront:[sel('shape','波面',{sphere:'球面波',plane:'平面波'},'sphere'),n('yaw','水平視角',-180,180,1,25,'°')],
  huygens:[n('v','波速',.5,2,.1,1)],
  water:[sel('view','觀察模式',{single:'單波源',reflection:'直線波反射',interference:'同相雙波源'},'single'),n('lambda','波長',1,3,.1,2),n('d','波源距離',1,5,.1,3),n('yaw','水平視角',-180,180,1,25,'°')],
@@ -68,11 +69,33 @@ export function mountSim(host,kind,settings={}){
   for(const [cy,f,c,l] of [[115,a,C.a,'波 1 →'],[245,b,C.b,'← 波 2'],[390,x=>a(x)+b(x),C.sum,'合位移']]){line(60,cy,840,cy);path(sample(x=>[60+x*97.5,cy-40*f(x)],0,8),c);txt(l,65,cy-65,c,19);}
   desc=`y = y₁ + y₂。第二脈衝相對振幅 ${v.sign.toFixed(1)}；t = 4 時兩脈衝中心重合，通過後各自前進。`;
  }
+ else if(kind==='standingFormation'){
+  const k=Math.PI,omega=Math.PI,A=1,xp=v.probe;
+  const y1=x=>A*Math.sin(k*x-omega*time),y2=x=>A*Math.sin(k*x+omega*time);
+  for(const [cy,f,c,title] of [[110,y1,C.a,'向右行進波 y₁ →'],[250,y2,C.b,'← 向左行進波 y₂'],[405,x=>y1(x)+y2(x),C.sum,'合成波 y₁ + y₂']]){
+   line(70,cy,830,cy);txt(title,70,cy-60,c,19);
+   path(sample(x=>[70+190*x,cy-27*f(x)],0,4),c,3);
+   line(70+190*xp,cy-50,70+190*xp,cy+50,C.muted,1,true);
+   dot(70+190*xp,cy-27*f(xp),6,C.green);
+  }
+  for(let x=0;x<=4;x++){dot(70+190*x,405,5,C.b);txt('節',62+190*x,477,C.b,16);}
+  for(let x=.5;x<4;x++){txt('腹',62+190*x,477,C.sum,16);}
+  desc=`λ = 2 m，f = 0.5 Hz，T = 2 s。觀察 x = ${xp.toFixed(2)} m：y₁/A = ${y1(xp).toFixed(2)}，y₂/A = ${y2(xp).toFixed(2)}，合位移/A = ${(y1(xp)+y2(xp)).toFixed(2)}；此處合振幅/A = ${(2*Math.abs(Math.sin(k*xp))).toFixed(2)}。三列使用相同位移比例；綠點標記同一位置。`;
+ }
  else if(kind==='standing'){
-  const k=v.boundary==='mixed'?(2*v.mode-1)*Math.PI/2:v.mode*Math.PI;
-  line(70,255,830,255);path(sample(x=>[70+760*x,255-100*Math.sin(k*x)*Math.cos(TAU*time)],0,1),C.sum,4);path(sample(x=>[70+760*x,255-100*Math.sin(k*x)],0,1),C.grid,2,true);path(sample(x=>[70+760*x,255+100*Math.sin(k*x)],0,1),C.grid,2,true);
-  for(let i=0;i<=v.mode*2;i++){let x=i*Math.PI/k;if(x<=1+1e-8){dot(70+x*760,255,7,C.b);txt('N',64+x*760,285,C.b,17);}}
-  txt('虛線：振幅包絡；紫點：始終不動的節點',60,80);txt(v.boundary==='mixed'?'右端自由（腹）':'右端固定（節）',610,400,C.muted,20);desc=`L = 1 m，v = 1 m/s，f = ${(k/TAU).toFixed(2)} Hz；λ = ${(TAU/k).toFixed(2)} m。動畫使用統一相位速度以利比較形狀，非實際時鐘。`;
+  const mixed=v.boundary==='mixed',L=v.L,k=mixed?(2*v.mode-1)*Math.PI/2:v.mode*Math.PI;
+  const f=k/(TAU*L),f1=(mixed?.25:.5)/L;
+  line(70,255,830,255);
+  path(sample(x=>[70+760*x,255-100*Math.sin(k*x)*Math.cos(TAU*f*time)],0,1),C.sum,4);
+  for(const sign of [-1,1])path(sample(x=>[70+760*x,255+sign*100*Math.sin(k*x)],0,1),C.grid,2,true);
+  for(let i=0;i<=v.mode;i++){let x=i*Math.PI/k;if(x<=1+1e-8){dot(70+x*760,255,7,C.b);txt('節',60+x*760,285,C.b,17);}}
+  line(70,120,70,375,C.ink,4);if(!mixed)line(830,120,830,375,C.ink,4);else{line(845,120,845,375,C.muted,2,true);dot(830,255-100*Math.sin(k)*Math.cos(TAU*f*time),9,C.green);}
+  txt(`模式 ${v.mode}：${mixed?2*v.mode-1:v.mode} 個${mixed?'四分之一':'半'}波長`,60,45);
+  txt(`f / f₁ = ${(f/f1).toFixed(0)}；λ = ${(TAU*L/k).toFixed(2)} m`,60,80,C.sum);
+  txt('左端固定（節）',60,355,C.muted,19);txt(mixed?'右端自由（腹）':'右端固定（節）',610,355,C.muted,19);
+  for(let j=1;j<=4;j++){const ratio=mixed?2*j-1:j;txt(`模式 ${j}：${ratio}f₁`,65+(j-1)*205,425,j===v.mode?C.sum:C.muted,20);}
+  txt('同一波速下，弦長越長，同一模式振動越慢。',60,475,C.ink,19);
+  desc=`L = ${L.toFixed(1)} m，v = 1 m/s；基頻 f₁ = ${f1.toFixed(3)} Hz；模式 ${v.mode} 的 f = ${f.toFixed(3)} Hz，T = ${(1/f).toFixed(2)} s。時間使用上述實際模型頻率。橫向視野隨弦長縮放，虛線為振幅包絡。`;
  }
  else if(kind==='wavefront'){
   for(let r=.4;r<3.2;r+=.75){const R=(r+time*.5)%3.3;if(v.shape==='sphere'){for(let lat=-60;lat<=60;lat+=30)p3(sample(a=>[R*Math.cos(lat*Math.PI/180)*Math.cos(a),R*Math.sin(lat*Math.PI/180),R*Math.cos(lat*Math.PI/180)*Math.sin(a)],0,TAU,60),C.a,1);for(let az=0;az<Math.PI;az+=Math.PI/3)p3(sample(a=>[R*Math.cos(a)*Math.cos(az),R*Math.sin(a),R*Math.cos(a)*Math.sin(az)],0,TAU,60),C.grid,1);}else{let x=2*R-3;p3([[x,-1.7,-1.7],[x,1.7,-1.7],[x,1.7,1.7],[x,-1.7,1.7],[x,-1.7,-1.7]],C.a,2);}}

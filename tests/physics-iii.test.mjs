@@ -41,3 +41,17 @@ globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};
 test('every authored simulation renders finite coordinates at initial, mid, end times and slider extremes',()=>{
  for(const u of data.units)for(const s of u.steps){const {h,inputs}=harness();const dispose=mountSim(h,s.sim,s.settings);for(const t of [0,2,4,8]){h.querySelector('[data-time]').value=t;h.querySelector('[data-time]').oninput();}for(const e of inputs){if(e.tagName==='INPUT'){const original=e.value;for(const value of [e.min,e.max]){e.value=value;e.oninput();}e.value=original;e.oninput();}}h.querySelector('[data-reset]').onclick();assert.ok(h.querySelector('.readout').textContent.length>10);dispose();}
 });
+
+test('standing-wave lessons separate formation from boundary-selected modes',()=>{
+ const steps=data.units.find(u=>u.id==='1-4').steps;
+ assert.notEqual(steps[1].sim,steps[2].sim);
+ const {h}=harness();let dispose=mountSim(h,steps[1].sim,{});
+ const set=(key,value)=>{const e=h.querySelector(`[data-control="${key}"]`);e.value=value;e.oninput();};
+ for(const t of [0,.25,.5,1]){h.querySelector('[data-time]').value=t;h.querySelector('[data-time]').oninput();assert.match(h.querySelector('.readout').textContent,/此處合振幅\/A = 0.00/);}
+ set('probe',.5);assert.match(h.querySelector('.readout').textContent,/此處合振幅\/A = 2.00/);dispose();
+ dispose=mountSim(h,steps[2].sim,{});
+ assert.match(h.querySelector('.readout').textContent,/f = 0.500 Hz/);
+ set('boundary','mixed');assert.match(h.querySelector('.readout').textContent,/f = 0.250 Hz/);
+ set('mode',2);assert.match(h.querySelector('.readout').textContent,/f = 0.750 Hz/);
+ set('L',2);assert.match(h.querySelector('.readout').textContent,/f = 0.375 Hz/);dispose();
+});
