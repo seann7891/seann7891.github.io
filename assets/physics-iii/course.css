@@ -2,3 +2,5 @@
 
 .sim-caption{margin:.35rem 0 1rem;padding:.6rem .8rem;border-left:4px solid var(--accent);background:#fff;font-weight:650;line-height:1.55}.advanced-controls{border-top:1px solid var(--line);padding-top:.3rem}.advanced-controls summary{font-weight:650;color:var(--green)}
 @media(max-width:950px){.lesson-layout{grid-template-columns:minmax(0,1fr)}.lesson-layout>aside,.lesson-layout>.learning{min-width:0;max-width:100%}.steps{max-width:100%;min-width:0}}
+
+.experiment-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
