@@ -2,14 +2,19 @@ import {TAU,speed,refract,lens,tubeFrequency,singleIntensity,doubleIntensity,res
 const C={ink:'#deefef',muted:'#8db2b7',grid:'#31515a',a:'#58c8ce',b:'#cc9cff',sum:'#ffbe74',red:'#fa8d8d',green:'#9cdbac'};
 const n=(key,label,min,max,step,value,unit='')=>({key,label,min,max,step,value,unit});
 const sel=(key,label,options,value)=>({key,label,options,value});
+export const interferenceAmplitudeFactor=(delta,lambda)=>Math.abs(Math.cos(Math.PI*delta/lambda));
+export const diffractionHalfAngle=ratio=>Math.min(1.25,.8/ratio);
+export const refractedWavefrontSpacing=(lambda1,speedRatio)=>lambda1*speedRatio;
+export function wallReflectionGeometry(angle,hitX=540,hitY=250,length=250){const c=Math.cos(angle),s=Math.sin(angle);return{normal:[-1,0],incident:[c,-s],reflected:[-c,-s],incomingStart:[hitX-c*length,hitY+s*length],incomingEnd:[hitX,hitY],reflectedStart:[hitX,hitY],reflectedEnd:[hitX-c*length,hitY-s*length]};}
+export const timeDisplacementAt=(x,t,lambda=2,f=1)=>Math.sin(TAU*(x/lambda-f*t));
 const defs={
  travel:[sel('shape','波形種類',{periodic:'週期波',pulse:'一次脈衝'},'periodic'),sel('mode','振動方向',{transverse:'橫波',longitudinal:'縱波'},'transverse'),n('f','頻率',.5,2,.1,1,' Hz'),n('v','波速',1,4,.1,2,' m/s')],
- speed:[n('F','張力',25,100,1,25,' N'),n('mu','線密度',.01,.04,.001,.01,' kg/m')],
+ speed:[sel('F','張力（固定線密度）',{'25':'25 N','100':'100 N'},'25'),n('mu','線密度 μ',.01,.04,.001,.01,' kg/m')],
  reflection:[sel('boundary','邊界',{fixed:'固定端',free:'自由端',joint:'兩繩交界'},'fixed'),n('ratio','μ₂/μ₁',.25,4,.25,4)],
- superposition:[n('sign','第二脈衝振幅',-1,1,.1,-1)],
+ superposition:[sel('sign','第二脈衝方向',{same:'同向位移',opposite:'反向位移'},'opposite')],
  standingFormation:[n('probe','觀察位置 x',0,4,.05,1,' m')],
  standing:[sel('boundary','邊界',{fixed:'兩端固定',mixed:'固定—自由'},'fixed'),n('mode','模式序號',1,4,1,1),n('L','弦長 L',1,2,.1,1,' m')],
- wavefront:[sel('shape','波面',{sphere:'球面波',plane:'平面波'},'sphere'),n('yaw','水平視角',-180,180,1,25,'°')],
+ wavefront:[sel('shape','觀察階段',{sphere:'看圓形截面',solid:'看立體球面',local:'看局部近似平面',plane:'看平面波'},'sphere')],
  huygens:[n('v','波速',.5,2,.1,1)],
  water:[sel('view','觀察模式',{single:'單波源',reflection:'直線波反射',interference:'同相雙波源'},'single'),n('lambda','波長',1,3,.1,2),n('d','波源距離',1,5,.1,3),n('yaw','水平視角',-180,180,1,25,'°')],
  sound:[n('f','頻率',200,800,20,400,' Hz'),n('temp','氣溫',0,40,1,20,' °C'),sel('graph','曲線',{displacement:'位移',pressure:'壓力增量'},'displacement'),n('yaw','水平視角',-180,180,1,15,'°')],
@@ -30,13 +35,20 @@ const defs={
 export const simulatorNames=Object.keys(defs);
 export function mountSim(host,kind,settings={}){
  if(!defs[kind])throw Error(`Unknown simulation: ${kind}`);
- let controls=defs[kind].map(c=>({...c}));
- if(kind==='refraction'&&settings.water)controls=[n('ratio','第二區/第一區波速',.4,1.4,.05,.6),n('angle','入射角',0,60,1,35,'°')];
- if(kind==='diffraction'&&settings.water)controls=[n('a','縫寬 / 波長',.5,5,.1,2)];
- const values=Object.fromEntries(controls.map(c=>[c.key,settings[c.key]??c.value]));
+ let allControls=defs[kind].map(c=>({...c}));
+ if(kind==='diffraction'&&settings.water)allControls=[n('a','縫寬 / 波長',.5,5,.1,2)];
+ if(kind==='water'&&settings.waterDiffraction)allControls=[n('a','縫寬 / 波長',.5,5,.1,2)];
+ let controls=allControls;
+ if(kind==='refraction'&&settings.water)allControls=[n('ratio','第二區/第一區波速',.4,1,.05,.6),n('angle','入射角',0,60,1,35,'°')];
+ if(kind==='water'&&settings.view==='reflection')allControls=[n('angle','入射角',15,60,1,30,'°')];
+ if(settings.allowedKeys)controls=allControls.filter(c=>settings.allowedKeys.includes(c.key));
+ const advancedControls=settings.advancedKeys?allControls.filter(c=>settings.advancedKeys.includes(c.key)):[];
+ if(advancedControls.length)controls=controls.filter(c=>!settings.advancedKeys.includes(c.key));
+ const values=Object.fromEntries(allControls.map(c=>[c.key,settings[c.key]??c.value]));
  let time=0,playing=false,alive=true,raf=0,last=0,pitch=.43,drag=null;
  const three=controls.some(c=>c.key==='yaw');
- host.innerHTML=`<canvas class="sim-canvas ${three?'three':''}" width="900" height="500" role="img" aria-label="可操作物理模型。模型內容與數值顯示在畫布下方。"></canvas><p class="legend">${three?'三維投影：拖動畫布旋轉，或使用水平視角滑桿。 ':''}青色／紫色區分成分，橘色標示合成或觀察結果。圖形的大小與速度為教學顯示比例。</p><div class="sim-controls">${controls.map(c=>`<label class="control">${c.label}${c.options?`<select data-control="${c.key}">${Object.entries(c.options).map(([v,t])=>`<option value="${v}" ${values[c.key]===v?'selected':''}>${t}</option>`).join('')}</select>`:`<output data-value="${c.key}"></output><input aria-label="${c.label}" data-control="${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${values[c.key]}">`}</label>`).join('')}</div><div class="transport"><button data-play>播放</button><button data-step>單步 +0.05</button><button data-reset>重設</button><label class="time-control">時間<input aria-label="模型時間" type="range" min="0" max="8" step=".01" value="0" data-time><output data-clock>0.00</output></label></div><div class="readout" aria-label="模型數值"></div>`;
+ const markup=c=>`<label class="control">${c.label}${c.options?`<select data-control="${c.key}">${Object.entries(c.options).filter(([v])=>!settings.optionKeys||settings.optionKeys.includes(v)).map(([v,t])=>`<option value="${v}" ${values[c.key]===v?'selected':''}>${t}</option>`).join('')}</select>`:`<output data-value="${c.key}"></output><input aria-label="${c.label}" data-control="${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${values[c.key]}">`}</label>`;
+ host.innerHTML=`<canvas class="sim-canvas ${three?'three':''}" width="900" height="500" role="img" aria-label="可操作物理模型。模型內容與數值顯示在畫布下方。"></canvas><p class="legend">${settings.legendText||`${three?'三維投影：拖動畫布旋轉，或使用水平視角滑桿。 ':''}青色／紫色區分成分，橘色標示合成或觀察結果。圖形的大小與速度為教學顯示比例。`}</p>${settings.caption?`<p class="sim-caption">${settings.caption}</p>`:''}<div class="sim-controls">${controls.map(markup).join('')}</div>${advancedControls.length?`<details class="advanced-controls"><summary>進一步比較</summary><div class="sim-controls">${advancedControls.map(markup).join('')}</div></details>`:''}<div class="transport"><button data-play ${settings.static?'hidden':''}>播放</button><button data-step ${settings.static?'hidden':''}>單步 +0.05</button><button data-restart ${settings.static?'hidden':''}>從頭播放</button><button data-reset>恢復預設</button><label class="time-control" ${settings.static?'hidden':''}>模型時間<input aria-label="模型時間" type="range" min="0" max="8" step=".01" value="0" data-time><output data-clock>0.00</output></label></div><div class="readout" aria-label="模型數值"></div>`;
  const canvas=host.querySelector('canvas'),ctx=canvas.getContext('2d'),readout=host.querySelector('.readout'),play=host.querySelector('[data-play]'),slider=host.querySelector('[data-time]'),clock=host.querySelector('[data-clock]');
  const txt=(s,x,y,color=C.ink,size=20)=>{ctx.fillStyle=color;ctx.font=`${size}px system-ui`;ctx.fillText(s,x,y);};
  const line=(x1,y1,x2,y2,color=C.grid,width=2,dashed=false)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashed?[7,6]:[]);ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.setLineDash([]);};
@@ -52,22 +64,28 @@ export function mountSim(host,kind,settings={}){
  function draw(){if(!alive)return;ctx.clearRect(0,0,900,500);ctx.fillStyle='#10272e';ctx.fillRect(0,0,900,500);const v=values;let desc='';
  controls.forEach(c=>{const o=host.querySelector(`[data-value="${c.key}"]`);if(o)o.textContent=`${Number(v[c.key]).toFixed(c.step<.01?3:c.step<1?2:0)}${c.unit||''}`;});slider.value=time;clock.textContent=time.toFixed(2);
  if(kind==='travel'||kind==='speed'){
-  let f=v.f||1,vel=kind==='speed'?speed(v.F,v.mu):v.v,lambda=vel/f;const displaySpeed=kind==='speed'?vel/20:vel;let lam=kind==='speed'?displaySpeed/f:lambda;let W=8;
-  line(55,245,850,245);arr(700,80,810,80);txt('波的傳播方向',610,55,C.a);const pts=[];
-  for(let i=0;i<=100;i++){let x=W*i/100,xi=v.shape==='pulse'?.35*gauss(x-(1+displaySpeed*time)):.24*Math.sin(TAU*(x/lam-f*time)),px=55+795*x/W,py=245;if(v.mode==='longitudinal')px+=xi*75;else py-=xi*210;pts.push([px,py]);if(i%2===0)dot(px,py,i===40?8:3,i===40?C.sum:C.a);}
-  if(v.mode!=='longitudinal')path(pts,C.a,2);txt('黃點：同一個介質位置',60,390,C.sum);txt('位置 x →',730,290,C.muted);desc=v.shape==='pulse'?'單一脈衝向右傳播；調整波速後按重設時間比較。脈衝未指定單一頻率與波長。':kind==='speed'?`v = √(F/μ) = ${vel.toFixed(2)} m/s。畫面時間與長度縮放；提高張力可直接比較移動快慢。`:`v = ${vel.toFixed(2)} m/s；f = ${f.toFixed(2)} Hz；λ = ${lambda.toFixed(2)} m；T = ${(1/f).toFixed(2)} s。黃點${v.mode==='longitudinal'?'沿傳播方向前後':'垂直傳播方向上下'}振動。`;
+  let f=v.f||1,vel=kind==='speed'?speed(v.F,v.mu):v.v,lambda=vel/f;const displaySpeed=kind==='speed'?vel/40:vel;let lam=kind==='speed'?displaySpeed/f:lambda;let W=8;
+  if(settings.timePlot){
+   const x0=3.2,phase=TAU*(x0/2-time),tm=((time%2)+2)%2,px=70+760*x0/8;txt('同一時刻的繩子位置圖',55,45,C.a);line(70,175,830,175,C.muted,1,true);path(sample(x=>[70+760*x/8,175-70*timeDisplacementAt(x,time,2,1)],0,8),C.a,3);line(px,100,px,220,C.sum,1,true);dot(px,175-70*Math.sin(phase),8,C.sum);txt('黃點 x = 3.2 m',px+8,120,C.sum,16);txt('位置 x（m）→',710,205,C.muted,17);
+   for(let x=0;x<=8;x+=2){const q=70+760*x/8;line(q,213,q,221,C.muted,1);txt(String(x),q-5,238,C.muted,14);}const lx1=70+760*.5/8,lx2=70+760*2.5/8;line(lx1,85,lx2,85,C.sum,2);line(lx1,79,lx1,92,C.sum,2);line(lx2,79,lx2,92,C.sum,2);txt('λ = 2 m', (lx1+lx2)/2-35,77,C.sum,15);line(lx1,175,lx1,105,C.sum,1,true);line(lx1-6,175,lx1+6,175,C.sum,2);line(lx1-6,105,lx1+6,105,C.sum,2);txt('A',lx1+8,143,C.sum,15);
+   line(70,335,830,335,C.muted,1,true);path(sample(t=>[70+380*t,335-70*timeDisplacementAt(x0,t,2,1)],0,2),C.sum,3);const tx=70+380*tm;line(tx,270,tx,410,C.sum,1,true);dot(tx,335-70*timeDisplacementAt(x0,tm,2,1),8,C.sum);txt('同一黃點的位移—時間圖',55,255,C.sum);txt('時間 t（秒）→',700,430,C.muted,17);for(let t=0;t<=2;t++){const q=70+380*t;line(q,410,q,418,C.muted,1);txt(String(t),q-4,440,C.muted,14);}const t1=70,t2=450;line(t1,422,t2,422,C.sum,2);line(t1,416,t1,428,C.sum,2);line(t2,416,t2,428,C.sum,2);txt('T = 1 s',(t1+t2)/2-25,465,C.sum,15);txt(`模型時間 ${time.toFixed(2)} s`,610,465,C.sum,15);desc='上圖顯示整條繩在目前時刻的位置，下圖固定追蹤 x = 3.2 m 的黃點。刻度與括線示範 λ = 2 m、T = 1 s；A 為位移振幅，垂直游標同步標出目前相位。';
+  } else {
+  line(55,245,850,245,C.muted,1,true);txt('平衡位置',65,232,C.muted,16);arr(700,80,810,80);txt('波的傳播方向',610,55,C.a);const pts=[];
+  for(let i=0;i<=100;i++){let x=W*i/100,xi=v.shape==='pulse'||kind==='speed'?.35*gauss(x-(1+displaySpeed*time)):.24*Math.sin(TAU*(x/lam-f*time)),px=55+795*x/W,py=245;if(v.mode==='longitudinal')px+=xi*75;else py-=xi*210;pts.push([px,py]);if(i%2===0)dot(px,py,i===40?8:3,i===40?C.sum:C.a);}
+  if(v.mode!=='longitudinal')path(pts,C.a,2);if(kind==='speed'){line(55,355,850,355,C.muted,1,true);path(sample(x=>[55+795*x/W,355-55*.35*gauss(x-(1+speed(25,Number(v.mu))/40*time))],0,W),C.b,3,true);txt('基準：25 N',65,420,C.b,18);txt(`目前：${Number(v.F).toFixed(0)} N`,65,300,C.a,18);}if(settings.periodCompare){path(sample(x=>[55+795*x/W,355-48*Math.sin(TAU*(x/2-time))],0,W),C.b,3,true);txt('虛線：1 Hz 基準（v = 2 m/s）',65,420,C.b,17);const start=55+795*(.5*lam)/W,end=55+795*(1.5*lam)/W;line(start,300,end,300,C.sum,2);line(start,292,start,308,C.sum,2);line(end,292,end,308,C.sum,2);txt(`目前 λ = ${lambda.toFixed(1)} m`,(start+end)/2-55,292,C.sum,16);const b1=55+795*.5/W,b2=55+795*2.5/W;line(b1,438,b2,438,C.b,2);line(b1,432,b1,444,C.b,2);line(b2,432,b2,444,C.b,2);txt('基準 λ₀ = 2 m',(b1+b2)/2-53,460,C.b,16);}const px=55+795*3.2/W,disp=v.shape==='pulse'||kind==='speed'?.35*gauss(3.2-(1+displaySpeed*time)):.24*Math.sin(TAU*(3.2/lam-f*time));line(px,205,px,285,C.sum,1,true);dot(v.mode==='longitudinal'?px+disp*75:px,v.mode==='longitudinal'?245:245-disp*210,8,C.sum);txt('黃點原位置',px+10,295,C.sum,16);if(v.shape==='periodic'){const crest=55+795*((f*time+.25)*lam)/W;dot(crest,35,7,C.b);txt('● 波峰',crest+10,40,C.b,16);}if(v.mode==='longitudinal'){arr(px-40,320,px+40,320,C.sum);arr(px+40,320,px-40,320,C.sum);}else{arr(px-25,210,px-25,280,C.sum);arr(px-25,280,px-25,210,C.sum);}txt('位置 x →',730,290,C.muted);desc=v.shape==='pulse'&&kind!=='speed'?'一次局部脈衝向右傳播；單一脈衝不指定頻率與波長。從頭播放可在保留設定時重播。':kind==='speed'?`v = √(F/μ) = ${vel.toFixed(2)} m/s；虛線基準 v₀ = ${speed(25,Number(v.mu)).toFixed(2)} m/s。同一模型時間比較兩條繩上的波前距離；長度採共同示意比例。`:`v = ${vel.toFixed(2)} m/s；f = ${f.toFixed(2)} Hz；λ = ${lambda.toFixed(2)} m；T = ${(1/f).toFixed(2)} s。黃點是固定介質位置；雙向箭頭表示粒子往返振動的方向。`;
+  }
  }
  else if(kind==='reflection'){
   const boundary=v.boundary,L=5,x0=1+time*.9,j=joint(v.ratio),r=boundary==='fixed'?-1:boundary==='free'?1:j.r;
-  const X=x=>80+x*105;line(70,260,850,260);line(X(L),90,X(L),390,C.muted,2,true);txt(boundary==='joint'?'交界':'端點',X(L)-25,65);
+  const X=x=>80+x*105;line(70,260,850,260);if(boundary==='fixed'){ctx.fillStyle='#d99a62';ctx.fillRect(X(L),170,13,180);txt('固定牆',X(L)-25,65,C.sum);}else if(boundary==='free'){line(X(L),90,X(L),390,C.sum,3);dot(X(L),260-70*(gauss(L-x0)+r*gauss(2*L-L-x0)),12,C.green);txt('自由端',X(L)-25,65,C.green);}else{line(X(L),90,X(L),390,C.muted,2,true);txt('交界',X(L)-25,65);}
   const inc=x=>gauss(x-x0),ref=x=>r*gauss(2*L-x-x0);path(sample(x=>[X(x),260-70*inc(x)],0,L),C.a,2);path(sample(x=>[X(x),260-70*ref(x)],0,L),C.b,2);path(sample(x=>[X(x),260-70*(inc(x)+ref(x))],0,L),C.sum,4);
   if(boundary==='joint'){path(sample(x=>[X(x),260-70*j.trans*gauss((x-L)/j.v2+L-x0)],L,7),C.green,4);txt('介質 1',100,360,C.a);txt('介質 2',655,360,C.green);}
   txt('青：入射　紫：反射　橘：左側合位移',65,440,C.ink,19);desc=`${boundary==='fixed'?'固定端':boundary==='free'?'自由端':'兩繩交界'}：反射係數 ${r.toFixed(2)}${boundary==='joint'?`；透射位移係數 ${j.trans.toFixed(2)}；v₂/v₁ = ${j.v2.toFixed(2)}`:''}。拖時間觀察脈衝抵達與離開。`;
  }
  else if(kind==='superposition'){
-  const a=x=>gauss(x-(1+time*.75)),b=x=>v.sign*gauss(x-(7-time*.75));
+  const sign=v.sign==='same'?1:-1,a=x=>gauss(x-(1+time*.75)),b=x=>sign*gauss(x-(7-time*.75));
   for(const [cy,f,c,l] of [[115,a,C.a,'波 1 →'],[245,b,C.b,'← 波 2'],[390,x=>a(x)+b(x),C.sum,'合位移']]){line(60,cy,840,cy);path(sample(x=>[60+x*97.5,cy-40*f(x)],0,8),c);txt(l,65,cy-65,c,19);}
-  desc=`y = y₁ + y₂。第二脈衝相對振幅 ${v.sign.toFixed(1)}；t = 4 時兩脈衝中心重合，通過後各自前進。`;
+  desc=`y = y₁ + y₂。第二脈衝與第一脈衝${sign>0?'同向':'反向'}；t = 4 時兩脈衝中心重合，通過後各自前進。`;
  }
  else if(kind==='standingFormation'){
   const k=Math.PI,omega=Math.PI,A=1,xp=v.probe;
@@ -98,19 +116,40 @@ export function mountSim(host,kind,settings={}){
   desc=`L = ${L.toFixed(1)} m，v = 1 m/s；基頻 f₁ = ${f1.toFixed(3)} Hz；模式 ${v.mode} 的 f = ${f.toFixed(3)} Hz，T = ${(1/f).toFixed(2)} s。時間使用上述實際模型頻率。橫向視野隨弦長縮放，虛線為振幅包絡。`;
  }
  else if(kind==='wavefront'){
-  for(let r=.4;r<3.2;r+=.75){const R=(r+time*.5)%3.3;if(v.shape==='sphere'){for(let lat=-60;lat<=60;lat+=30)p3(sample(a=>[R*Math.cos(lat*Math.PI/180)*Math.cos(a),R*Math.sin(lat*Math.PI/180),R*Math.cos(lat*Math.PI/180)*Math.sin(a)],0,TAU,60),C.a,1);for(let az=0;az<Math.PI;az+=Math.PI/3)p3(sample(a=>[R*Math.cos(a)*Math.cos(az),R*Math.sin(a),R*Math.cos(a)*Math.sin(az)],0,TAU,60),C.grid,1);}else{let x=2*R-3;p3([[x,-1.7,-1.7],[x,1.7,-1.7],[x,1.7,1.7],[x,-1.7,1.7],[x,-1.7,-1.7]],C.a,2);}}
-  line3([-4,0,0],[4,0,0],C.sum);label3('傳播軸 / 徑向',[3.4,0,0],C.sum);dot(...project(0,0,0),6,C.sum);txt(v.shape==='sphere'?'同相位的球面':'相互平行的波面',45,45);desc='波面向外移動；線框只是描出等相位面，不是實體薄殼。旋轉觀察波面與傳播方向的垂直關係。';
+  if(v.shape==='sphere'){
+   const cx=450,cy=255,rs=[55,110,165];dot(cx,cy,7,C.sum);txt('波源 S',cx+12,cy-12,C.sum,19);rs.forEach((r,i)=>{ctx.beginPath();ctx.strokeStyle=i===1?C.a:C.grid;ctx.lineWidth=i===1?4:2;ctx.arc(cx,cy,r,0,TAU);ctx.stroke();});
+   for(const a of [0,Math.PI/2,Math.PI*1.25])arr(cx+125*Math.cos(a),cy+125*Math.sin(a),cx+185*Math.cos(a),cy+185*Math.sin(a),C.sum);
+   line(cx+rs[0],cy+8,cx+rs[1],cy+8,C.sum,2);txt('λ：相鄰同類波前距離',cx+40,cy+35,C.sum,18);txt('通過波源 S 的平面截面',45,45);desc='圓是球面波通過波源的平面截面。三支箭頭表示不同位置的徑向傳播方向；波源到波面距離相等時形成球面。';
+  } else if(v.shape==='solid'){
+   const cx=450,cy=250,r=150;ctx.fillStyle='rgba(88,200,206,.15)';ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.fill();ctx.strokeStyle=C.a;ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.stroke();
+   ctx.fillStyle='rgba(255,190,116,.13)';ctx.beginPath();ctx.moveTo(cx-r-35,cy-28);ctx.lineTo(cx+r+35,cy-28);ctx.lineTo(cx+r+35,cy+28);ctx.lineTo(cx-r-35,cy+28);ctx.closePath();ctx.fill();line(cx-r-35,cy-28,cx+r+35,cy-28,C.sum,2);line(cx-r-35,cy+28,cx+r+35,cy+28,C.sum,2);
+   ctx.beginPath();ctx.ellipse(cx,cy,r,48,0,Math.PI,TAU);ctx.strokeStyle=C.a;ctx.lineWidth=4;ctx.stroke();ctx.beginPath();ctx.ellipse(cx,cy,r,48,0,0,Math.PI);ctx.strokeStyle=C.a;ctx.setLineDash([7,6]);ctx.stroke();ctx.setLineDash([]);dot(cx,cy,7,C.sum);txt('球面（正投影外形）',45,45);txt('穿過球心的截面平面',300,cy+18,C.sum,18);txt('粗線：可辨認的截面圓',300,cy+70,C.a,18);desc='球的正投影外輪廓是圓；穿過球心的平面以色帶表示。截面和球面相交成圓，遠側用虛線表示。';
+  } else if(v.shape==='local'){
+   const cx=450,cy=245,r=150,t=.68,px=cx+r*Math.cos(t),py=cy+r*Math.sin(t),ux=Math.cos(t),uy=Math.sin(t);
+   ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.strokeStyle=C.grid;ctx.lineWidth=2;ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r,t-.3,t+.3);ctx.strokeStyle=C.a;ctx.lineWidth=6;ctx.stroke();dot(cx,cy,7,C.ink);dot(px,py,7,C.sum);arr(cx,cy,px,py,C.sum);line(px-uy*85,py+ux*85,px+uy*85,py-ux*85,C.ink,2,true);txt('波源 S',cx-55,cy-14,C.ink,18);txt('P 在圓周上',px+8,py-8,C.sum);txt('局部切線',45,45);desc='P 位於圓形截面波前上。橘色 SP 箭頭表示徑向傳播方向；虛線切線與 SP 垂直。遠離波源的小弧可近似直線。';
+  } else {
+   for(let x=240;x<=660;x+=105){line(x,105,x,395,C.a,4);arr(x,410,x+60,410,C.sum);}line(160,250,740,250,C.grid,1,true);txt('平行波前',45,45,C.a);txt('共同法線／傳播方向',530,455,C.sum,18);desc='平面波的波前彼此平行；共同法線垂直各條波前，代表一致的傳播方向。';
+
+  }
  }
  else if(kind==='huygens'){
-  let r=time*v.v*18;line(160,75,160,420,C.a,4);for(let y=90;y<=410;y+=40){ctx.strokeStyle=C.b;ctx.lineWidth=1;ctx.beginPath();ctx.arc(160,y,r,0,TAU);ctx.stroke();dot(160,y,4,C.a);}line(160+r,65,160+r,435,C.sum,4);arr(180,455,340,455,C.sum);txt('原波前',55,40,C.a);txt('向前包絡線',Math.min(650,180+r),40,C.sum);desc=`各子波半徑相同，隨 Δt 增加。橘線為向前的新波前；後向子波在此幾何模型中不另作傳播解。`;
+  const r=time*v.v*18,ys=[120,180,250,320,380];line(160,75,160,420,C.a,4);for(const y of ys){ctx.save();ctx.beginPath();ctx.rect(160,y-r-2,760,r*2+4);ctx.clip();ctx.beginPath();ctx.arc(160,y,r,Math.PI*1.5,Math.PI*.5);ctx.strokeStyle=C.b;ctx.lineWidth=2;ctx.stroke();ctx.restore();dot(160,y,4,C.a);}line(160+r,65,160+r,435,C.sum,4);arr(190,455,340,455,C.sum);txt('原波前',55,40,C.a);txt('向前的共同包絡線',Math.min(600,180+r),40,C.sum);desc=`Δt = ${time.toFixed(2)}（模型時間）；每個子波半徑同為 vΔt = ${(time*v.v).toFixed(2)} 示意單位。橘線是向前共同包絡線。`;
  }
  else if(kind==='water'){
-  const k=TAU/v.lambda,wt=TAU*time*.5;
-  const surface=(x,z)=>{if(v.view==='reflection')return .36*(Math.sin(k*(x*.65+z*.76)-wt)+Math.sin(k*(-x*.65+z*.76)-wt));const r1=Math.hypot(x+v.d/2,z),r2=Math.hypot(x-v.d/2,z);return v.view==='interference'?.34*(Math.sin(k*r1-wt)+Math.sin(k*r2-wt)):.5*Math.sin(k*Math.hypot(x,z)-wt);};
-  for(let z=-3;z<=3.001;z+=.22)p3(sample(x=>[x,surface(x,z),z],-4,v.view==='reflection'?0:4,44),C.a,1.3);for(let x=-4;x<=(v.view==='reflection'?0:4.001);x+=.3)p3(sample(z=>[x,surface(x,z),z],-3,3,32),C.grid,1);
-  if(v.view==='reflection')p3([[0,-.7,-3],[0,1,-3],[0,1,3],[0,-.7,3]],C.sum,2);
-  if(v.view==='interference'){for(let x of [-v.d/2,v.d/2])dot(...project(x,0,0),7,C.sum);}txt(v.view==='reflection'?'入射與反射直線波的合成（牆位於 x = 0）':v.view==='interference'?'兩個同相波源的合位移':'圓形波在水面向外傳播',35,40,C.ink,20);
-  desc=`λ = ${v.lambda.toFixed(1)} 示意長度${v.view==='interference'?`；d/λ = ${(v.d/v.lambda).toFixed(2)}`:''}。高度為位移而非亮度；振幅放大，忽略衰減。${v.view==='reflection'?'反射與入射方向相對牆的法線對稱。':''}`;
+  const mode=settings.waterDiffraction?'diffraction':(settings.view??v.view),cx=450,cy=250;
+  if(mode==='reflection'){
+   const ang=(v.angle??30)*Math.PI/180,g=wallReflectionGeometry(ang,540,cy),cs=Math.cos(ang),sn=Math.sin(ang),hitX=540,hitY=cy,half=78;ctx.fillStyle='#123540';ctx.fillRect(0,0,900,500);line(hitX,65,hitX,435,C.sum,5);line(80,hitY,830,hitY,C.muted,2,true);txt('牆',555,90,C.sum);txt('法線（垂直牆面）',85,hitY-12,C.muted);
+   const clipLine=(x1,y1,x2,y2,col)=>line(Math.min(hitX-10,x1),y1,Math.min(hitX-10,x2),y2,col,2);
+   for(let j=1;j<=3;j++){let q=j*76,cx=hitX-cs*q,iy=hitY+sn*q;clipLine(cx-half*sn,iy-half*cs,cx+half*sn,iy+half*cs,C.a);let rx=hitX-cs*q,ry=hitY-sn*q;clipLine(rx-half*sn,ry+half*cs,rx+half*sn,ry-half*cs,C.b);}
+   arr(...g.incomingStart,...g.incomingEnd,C.a);arr(...g.reflectedStart,...g.reflectedEnd,C.b);ctx.beginPath();ctx.arc(hitX,hitY,52,Math.PI-ang,Math.PI);ctx.strokeStyle=C.a;ctx.lineWidth=2;ctx.stroke();ctx.beginPath();ctx.arc(hitX,hitY,52,Math.PI,Math.PI+ang);ctx.strokeStyle=C.b;ctx.stroke();txt('θᵢ',hitX-64,cy+37,C.a,17);txt('θᵣ',hitX-63,cy-40,C.b,17);desc=`俯視圖：牆是直線，法線垂直牆面。波前垂直傳播方向；入射角與反射角從法線量起且相等。入射角 ${v.angle}°。`;
+  } else if(mode==='interference'){
+   ctx.fillStyle='#10272e';ctx.fillRect(0,0,900,500);const lam=90*v.lambda,d=90*v.d/2;for(let x=0;x<900;x+=4)for(let y=60;y<445;y+=4){const xx=(x-cx)/90,yy=(y-cy)/90,r1=Math.hypot(xx+v.d/2,yy),r2=Math.hypot(xx-v.d/2,yy),dr=Math.abs(r1-r2)*90;if(interferenceAmplitudeFactor(dr,lam)<.10){ctx.fillStyle='#e8edf0';ctx.fillRect(x,y,3,3);}}
+   dot(cx-d,cy,8,C.sum);dot(cx+d,cy,8,C.sum);txt('同相波源 S₁、S₂',45,45,C.sum);const px=650,py=180,r1=Math.hypot(px-(cx-d),py-cy),r2=Math.hypot(px-(cx+d),py-cy),dr=Math.abs(r1-r2);dot(px,py,7,C.sum);line(cx-d,cy,px,py,C.a,1,true);line(cx+d,cy,px,py,C.b,1,true);txt('P',px+10,py,C.sum);desc=`白線是穩定節線（合振幅接近零），不是瞬間水面高度。P 點 Δr/λ = ${(dr/lam).toFixed(2)}；整數波長差加強，半整數波長差抵消。`;
+  } else if(mode==='diffraction'){
+   const ratio=v.a;ctx.fillStyle='#10272e';ctx.fillRect(0,0,900,500);for(let x=65;x<435;x+=65)line(x,70,x,430,C.a,2);ctx.fillStyle='#d8e8e9';ctx.fillRect(450,70,10,150-ratio*12);ctx.fillRect(450,350+ratio*12,10,80);const gap=Math.max(18,ratio*18);ctx.fillStyle='#d8e8e9';ctx.fillRect(450,70,10,cy-gap/2-70);ctx.fillRect(450,cy+gap/2,10,430-cy-gap/2);for(let r=65;r<380;r+=65){ctx.beginPath();ctx.arc(460,cy,r,-Math.PI/2,Math.PI/2);ctx.strokeStyle=C.sum;ctx.lineWidth=2;ctx.stroke();}txt('入射平行波前',65,45,C.a);txt('窄縫 a',470,cy+7,C.sum);txt('出射波前展開',600,45,C.sum);desc=`俯視圖示意：a/λ = ${ratio.toFixed(1)}。比例越小，窄縫後的波前越向外展開。`;
+  } else {
+   const x=270,y=cy,rmax=205;dot(x,y,8,C.sum);for(let r=55;r<=rmax;r+=50){ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.strokeStyle=C.a;ctx.lineWidth=2;ctx.stroke();}for(let t=0;t<3;t++)arr(x+110*Math.cos(t*TAU/3),y+110*Math.sin(t*TAU/3),x+165*Math.cos(t*TAU/3),y+165*Math.sin(t*TAU/3),C.sum);txt('波源 S',x+14,y-15,C.sum);txt('同心圓：俯視波前',45,45);desc='圓弧表示同一時刻的波峰波前；離開點波源時向各方向傳播。圖為俯視示意，不代表水面高度。';
+  }
  }
  else if(kind==='sound'||kind==='pipe'){
   const isPipe=kind==='pipe',vel=isPipe?343:331+.6*v.temp,L=isPipe?1:1.8,f=isPipe?tubeFrequency(vel,L,v.mode,v.end==='closed'):v.f,k=isPipe?(v.end==='closed'?(2*v.mode-1)*Math.PI/2:v.mode*Math.PI):TAU/(vel/f)*L;
@@ -136,6 +175,11 @@ export function mountSim(host,kind,settings={}){
   txt('右側刻度：預期共鳴長度',440,50,C.muted,18);desc=`λ = ${lambda.toFixed(3)} m；相鄰共鳴差 ${(lambda/2).toFixed(3)} m；當前相對反應 ${amp.toFixed(2)}。忽略管口修正；反應峰以有限損耗示意，非聲壓校準。`;
  }
  else if(kind==='refraction'){
+  if(settings.water){
+   const ratio=v.ratio,ang=v.angle*Math.PI/180,theta=Math.asin(Math.max(-1,Math.min(1,ratio*Math.sin(ang))));ctx.fillStyle='#123540';ctx.fillRect(0,0,900,245);ctx.fillStyle='#1c5660';ctx.fillRect(0,255,900,245);line(55,250,845,250,C.ink,3);line(450,70,450,430,C.muted,2,true);txt('深水：較快',65,70,C.a);txt('淺水：較慢',65,300,C.sum);txt('界面',470,240);txt('法線',462,65,C.muted);
+   for(let d=90;d<=360;d+=90){const x=450-d*Math.sin(ang),y=250-d*Math.cos(ang),L=100;line(x-L*Math.cos(ang),y+L*Math.sin(ang),x+L*Math.cos(ang),y-L*Math.sin(ang),C.a,3);const dd=refractedWavefrontSpacing(d,ratio),x2=450+dd*Math.sin(theta),y2=250+dd*Math.cos(theta);line(x2-L*Math.cos(theta),y2+L*Math.sin(theta),x2+L*Math.cos(theta),y2-L*Math.sin(theta),C.sum,3);}
+   const incEnd=[450,250],incStart=[450-190*Math.sin(ang),250-190*Math.cos(ang)],outEnd=[450+190*Math.sin(theta),250+190*Math.cos(theta)];arr(...incStart,...incEnd,C.a);arr(...incEnd,...outEnd,C.sum);txt('λ₁',320,155,C.a);txt(ratio<1?'λ₂ 較短':'λ₂ 相同',560,350,C.sum);desc=`v₂/v₁ = ${ratio.toFixed(2)}；入射角固定 ${v.angle}°；折射角 ${((theta*180/Math.PI)).toFixed(1)}°。頻率不變，λ₂/λ₁ = ${ratio.toFixed(2)}。${ratio<1?'此時第二區波速較慢、波長較短。':'兩區波速與波長相同，方向不變。'}`;
+  } else {
   const water=settings.water,n1=water?1:v.n1,n2=water?1/v.ratio:v.n2,theta=refract(n1,n2,v.angle),ang=v.angle*Math.PI/180;
   const R=2.7,inc=[-R*Math.sin(ang),R*Math.cos(ang),0],ref=[R*Math.sin(ang),R*Math.cos(ang),0];
   p3([[-4,0,-1.4],[4,0,-1.4],[4,0,1.4],[-4,0,1.4],[-4,0,-1.4]],C.grid,2);line3([0,-3,0],[0,3,0],C.muted,true);line3(inc,[0,0,0],C.a);line3([0,0,0],ref,C.b);label3('入射',inc,C.a);label3('反射',ref,C.b);label3('法線',[0,3,0],C.muted);
@@ -144,6 +188,7 @@ export function mountSim(host,kind,settings={}){
    if(water){for(let d=.6;d<2.6;d+=.6){let x=-d*Math.sin(ang),y=d*Math.cos(ang);line3([x-.65*Math.cos(ang),y-.65*Math.sin(ang),0],[x+.65*Math.cos(ang),y+.65*Math.sin(ang),0],C.a);let a=d*v.ratio;line3([a*Math.sin(r)-.65*Math.cos(r),-a*Math.cos(r)-.65*Math.sin(r),0],[a*Math.sin(r)+.65*Math.cos(r),-a*Math.cos(r)+.65*Math.sin(r),0],C.sum);}}}
   const crit=n1>n2?Math.asin(n2/n1)*180/Math.PI:null;txt(`入射 ${v.angle.toFixed(1)}°`,40,45,C.a);txt(theta===null?'全反射':`折射 ${theta.toFixed(1)}°`,620,45,C.sum);
   desc=`${water?`v₂/v₁ = ${v.ratio.toFixed(2)}；λ₂/λ₁ = ${v.ratio.toFixed(2)}`:`n₁ = ${n1.toFixed(2)}；n₂ = ${n2.toFixed(2)}`}；θᵣ = θᵢ = ${v.angle.toFixed(1)}°。${crit?`臨界角 ${crit.toFixed(2)}°。`:''}${theta===null?'沒有傳入第二介質的傳播光線。':Math.abs(theta-90)<.01?'目前為臨界狀態。':'頻率跨界面不變。'} 光點只標示方向，非光速比例。`;
+ }
  }
  else if(kind==='apparent'){
   const cx=430,cy=170,scale=80,real=cy+v.depth*scale,virtual=cy+v.depth/v.n*scale;ctx.fillStyle='#174652';ctx.fillRect(60,cy,780,290);line(60,cy,840,cy,C.a,3);dot(cx,real,9,C.sum);dot(cx,virtual,7,C.b);txt('實物',cx+15,real,C.sum);txt('近軸虛像',cx+15,virtual,C.b);
@@ -173,6 +218,9 @@ export function mountSim(host,kind,settings={}){
   for(let x=-4;x<=4;x+=.25){line3([x,0,0],[x,w(x)*Math.cos(pol),w(x)*Math.sin(pol)],C.a);line3([x,0,0],[x,-w(x)*Math.sin(pol),w(x)*Math.cos(pol)],C.b);}
   txt('E 電場：青色　B 磁場：紫色',35,45);label3('傳播 +x',[4,0,0],C.sum);desc=`E 與 B 同相且彼此垂直，E × B 指向 +x。偏振角 ${v.pol}°。兩場以各自振幅正規化；高度不代表 E 與 B 的 SI 數值相同。`;
  }
+ else if(kind==='diffraction'&&settings.water){
+  const ratio=v.a,opening=diffractionHalfAngle(ratio);ctx.fillStyle='#10272e';ctx.fillRect(0,0,900,500);for(let x=65;x<435;x+=65)line(x,70,x,430,C.a,2);const gap=Math.max(18,ratio*18);ctx.fillStyle='#d8e8e9';ctx.fillRect(450,70,10,250-gap/2-70);ctx.fillRect(450,250+gap/2,10,430-250-gap/2);for(let r=65;r<380;r+=65){ctx.beginPath();ctx.arc(460,250,r,-opening,opening);ctx.strokeStyle=C.sum;ctx.lineWidth=2;ctx.stroke();}txt('入射平行波前',65,45,C.a);txt('單縫 a',470,257,C.sum);txt('出射波前展開',600,45,C.sum);desc=`俯視示意：縫寬 a/λ = ${ratio.toFixed(1)}。a/λ 越小，縫後的波前越明顯向外展開。這不是水面高度圖。`;
+ }
  else if(['doubleSlit','diffraction','combined'].includes(kind)){
   const water=settings.water,lambda=water?1:(v.lambda*1e-9/(v.n||1)),a=water?v.a:(v.a||.1)*1e-3,d=(v.d||.25)*1e-3,L=v.L||1.5,extent=water?1: .025;
   const intensity=y=>{const sin=water?y: y/Math.hypot(L,y),one=singleIntensity(a,lambda,sin),two=doubleIntensity(d,lambda,sin,(v.phase||0)*Math.PI/180);return kind==='doubleSlit'?two:kind==='combined'?one*two:one;};
@@ -188,7 +236,7 @@ export function mountSim(host,kind,settings={}){
  function pause(){playing=false;play.textContent='播放';cancelAnimationFrame(raf);}
  function tick(now){if(!alive||!playing)return;let dt=last?Math.min(.05,(now-last)/1000):0;last=now;time+=dt;if(time>=8){time=8;pause();}draw();if(playing)raf=requestAnimationFrame(tick);}
  play.onclick=()=>{if(playing)pause();else{if(time>=8)time=0;playing=true;last=0;play.textContent='暫停';raf=requestAnimationFrame(tick);}};
- host.querySelector('[data-step]').onclick=()=>{pause();time=Math.min(8,time+.05);draw();};
+ host.querySelector('[data-step]').onclick=()=>{pause();time=Math.min(8,time+.05);draw();};const restart=host.querySelector('[data-restart]');if(restart)restart.onclick=()=>{pause();time=0;draw();if(!settings.static)play.onclick();};
  host.querySelector('[data-reset]').onclick=()=>{pause();time=0;pitch=.43;controls.forEach(c=>{values[c.key]=settings[c.key]??c.value;host.querySelector(`[data-control="${c.key}"]`).value=values[c.key];});draw();};
  slider.oninput=()=>{pause();time=Number(slider.value);draw();};host.querySelectorAll('[data-control]').forEach(e=>e.oninput=()=>{values[e.dataset.control]=e.tagName==='SELECT'?e.value:Number(e.value);draw();});
  if(three){canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY,values.yaw,pitch];canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!drag)return;values.yaw=Math.max(-180,Math.min(180,drag[2]+(e.clientX-drag[0])*.4));pitch=Math.max(-1.2,Math.min(1.2,drag[3]+(e.clientY-drag[1])*.005));host.querySelector('[data-control="yaw"]').value=values.yaw;draw();};canvas.onpointerup=canvas.onpointercancel=()=>drag=null;}
