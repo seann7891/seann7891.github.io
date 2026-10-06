@@ -142,6 +142,9 @@ button.ghost { background: transparent; }
 .chip input:checked + span small { color: #fff; }
 .chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.photo-pick { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.photo-pick img { width: 96px; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.photo-pick input[type="file"] { max-width: 100%; }
 .summary { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
 .foot { text-align: center; font-size: .85rem; color: var(--muted); margin: 24px 0; }
 
@@ -176,7 +179,7 @@ button.ghost { background: transparent; }
   border: .6mm solid #000;
   display: flex;
   flex-direction: column;
-  min-height: 19mm;
+  min-height: 12mm;
   cursor: pointer;
   background: #fff;
 }
@@ -186,9 +189,10 @@ button.ghost { background: transparent; }
 .seat .nm { font-size: 4.2mm; }
 .seat .rl { font-size: 3.1mm; min-height: 3.6mm; white-space: nowrap; overflow: hidden; }
 .seat .rl.long { font-size: 2.5mm; }
-.seat .ph { display: block; width: 14mm; height: 17.5mm; object-fit: cover; margin: .6mm auto .4mm; background: #eee; }
+.seat .ph { display: block; width: 16mm; height: 20mm; object-fit: cover; margin: .6mm auto .4mm; background: #eee; }
 .seat .ph.none { display: flex; align-items: center; justify-content: center; font-size: 2.5mm; color: #888; }
-.seat .no { border-top: .6mm solid #000; text-align: center; font-size: 3.8mm; line-height: 5.2mm; min-height: 5.2mm; }
+.seat .no { border-top: .6mm solid #000; text-align: center; font-size: 3.6mm; line-height: 5.4mm; min-height: 5.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 .3mm; }
+.seat .no.multi { font-size: 2.4mm; }
 .seat.empty .occs::after { content: attr(data-label); text-align: center; font-size: 2.6mm; color: #999; }
 .seat.conflict { background: #fde8e8; }
 .seat.conflict .ph { width: 8mm; height: 10mm; }
@@ -206,9 +210,10 @@ button.ghost { background: transparent; }
 .tables { display: grid; grid-template-columns: 1.15fr 1fr; gap: 4mm; margin-top: 7mm; align-items: start; }
 .sheet.with-photos .tables { break-before: page; page-break-before: always; }
 .sheet table { width: 100%; border-collapse: collapse; font-size: 3.3mm; }
+.sheet table.fixed { table-layout: fixed; }
 .sheet caption { font-weight: 700; border: .4mm solid #000; border-bottom: none; padding: .8mm 0; font-size: 3.6mm; }
 .sheet th, .sheet td { border: .3mm solid #000; padding: .7mm 1.2mm; vertical-align: top; }
-.sheet th { font-weight: 600; white-space: nowrap; text-align: center; }
+.sheet th { font-weight: 600; text-align: center; }
 .sheet td.n { text-align: center; white-space: nowrap; }
 
 .editor .roles { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .9rem; margin-bottom: 8px; }

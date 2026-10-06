@@ -138,6 +138,25 @@ test('Apps Script backend: setup, roster, config and student submission', () => 
   const rows = gas.sheets.get('填寫').rows();
   assert.deepEqual(rows.map(x => x.slice(0, 6)), [[1, '王小明', '', '', '', ''], [2, '李小華', 4, 1, '風紀', '']]);
 
+  // 學生上傳照片：每人一張，新的覆蓋舊的；學生端只看得到誰有照片
+  const jpg = 'data:image/jpeg;base64,' + 'A'.repeat(100);
+  const jpg2 = 'data:image/jpeg;base64,' + 'B'.repeat(100);
+  assert.ok(gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 1, photo: jpg }).ok);
+  r = gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 1, photo: jpg2 });
+  assert.deepEqual(r.photoNos, [1]);
+  assert.equal(r.photos, undefined, 'students never receive photo data');
+  assert.equal(gas.sheets.get('照片').rows().length, 1, 'new photo replaces the old one');
+  r = gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 1 });
+  assert.deepEqual(r.photoNos, [1], 'submitting without a photo keeps the old one');
+  assert.equal(gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 1, photo: 'data:image/png;base64,AAAA' }).error, '照片格式錯誤');
+  assert.equal(gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 1, photo: 'data:image/jpeg;base64,' + 'A'.repeat(50000) }).error, '照片太大');
+  r = gas.post({ action: 'teacher.load', ...t });
+  assert.deepEqual(r.photos, { 1: jpg2 });
+  assert.equal(gas.post({ action: 'teacher.saveEntries', ...t, entries: [] }).photos, undefined, 'saves skip the heavy photo payload');
+  r = gas.post({ action: 'teacher.savePhoto', ...t, no: 1, photo: null });
+  assert.deepEqual(r.photos, {});
+  assert.equal(gas.post({ action: 'teacher.savePhoto', ...t, no: 9, photo: jpg }).error, '名單裡沒有座號 9');
+
   assert.equal(gas.post({ action: 'teacher.saveConfig', ...t, config: { layout: '3, 3', lectern: 4 } }).error, '講桌位置超出排數');
   assert.match(gas.post({ action: 'teacher.saveRoster', ...t, roster: [{ no: 1, name: 'a' }, { no: 1, name: 'b' }] }).error, /座號重複/);
   assert.equal(gas.post({ action: 'nope' }).error, '未知的動作');
