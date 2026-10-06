@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>座位表 教師端 | Tools</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page wide">
+  <header>
+    <h1>座位表 · 教師端</h1>
+    <p class="muted small" id="status"></p>
+  </header>
+
+  <section id="login" class="card" hidden>
+    <form id="loginForm">
+      <label class="field"><span>教師密碼（Apps Script 裡設定的 TEACHER_PASSWORD）</span>
+        <input id="teacherPw" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary" type="submit" id="loginBtn">登入</button>
+      <p class="msg" id="loginMsg" role="status"></p>
+    </form>
+  </section>
+
+  <nav class="tabs" id="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="chart" aria-selected="true">座位表</button>
+    <button type="button" role="tab" data-tab="roster" aria-selected="false">名單與照片</button>
+    <button type="button" role="tab" data-tab="settings" aria-selected="false">設定</button>
+    <button type="button" role="tab" data-tab="setup" aria-selected="false">架設說明</button>
+  </nav>
+
+  <!-- 座位表 -->
+  <section id="tab-chart" data-panel="chart">
+    <div class="row toolbar no-print">
+      <button type="button" id="refresh">重新整理</button>
+      <label><input type="checkbox" id="showPhotos"> 顯示照片</label>
+      <button type="button" class="primary" id="saveEntries" disabled>儲存變更</button>
+      <button type="button" id="print">列印 / 存成 PDF</button>
+      <span class="msg" id="chartMsg" role="status"></span>
+    </div>
+    <div class="workspace">
+      <div class="sheet-wrap">
+        <div class="sheet" id="sheet">
+          <h1 class="sheet-title" id="sheetTitle"></h1>
+          <div class="chart" id="chart"></div>
+          <div class="tables" id="tables"></div>
+        </div>
+      </div>
+      <aside class="side no-print">
+        <div class="card editor" id="editor">
+          <h2>調整</h2>
+          <p class="small muted" id="editorHint">點座位表上的學生選取；再點另一個座位就會移過去，若那裡有人就互換（從重複座位移出時，對方會改放到「還沒有座位」）。</p>
+          <div id="editorBody" hidden>
+            <p><strong id="selName"></strong><br><span class="small" id="selSeat"></span></p>
+            <h3>幹部</h3>
+            <div class="roles" id="selCadres"></div>
+            <h3>小老師</h3>
+            <div class="roles" id="selTutors"></div>
+            <div class="row">
+              <button type="button" id="unseat">移出座位</button>
+              <button type="button" id="deselect">取消選取</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>還沒有座位</h2>
+          <div class="tray" id="tray"></div>
+        </div>
+        <div class="card">
+          <h2>檢查</h2>
+          <div id="issues" class="small"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 名單與照片 -->
+  <section id="tab-roster" data-panel="roster" hidden>
+    <div class="card">
+      <h2>從學校照片名冊 PDF 匯入</h2>
+      <p class="small muted">校務系統的「導師班級照片名冊」PDF。姓名與座號會存到你的 Google 試算表；照片只存在這台電腦的瀏覽器，不會上傳。</p>
+      <input type="file" id="pdfFile" accept="application/pdf">
+      <p class="msg" id="pdfMsg" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>或手動輸入名單</h2>
+      <p class="small muted">每行一位：座號 姓名。</p>
+      <textarea id="rosterText" rows="8" placeholder="01 王小明&#10;02 李小華"></textarea>
+      <div class="row"><button type="button" id="parseText">預覽</button></div>
+    </div>
+    <div class="card" id="preview" hidden>
+      <h2>預覽</h2>
+      <p id="previewInfo"></p>
+      <div class="roster-grid" id="previewGrid"></div>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="primary" id="useRoster">使用這份名單</button>
+        <button type="button" id="cancelPreview">取消</button>
+      </div>
+      <p class="msg" id="useMsg" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>目前名單</h2>
+      <p class="small" id="rosterInfo"></p>
+      <div class="roster-grid" id="rosterGrid"></div>
+      <h3>另外加入照片檔</h3>
+      <p class="small muted">檔名要包含座號，例如 01.jpg。照片只存在這台電腦的瀏覽器。</p>
+      <div class="row">
+        <input type="file" id="photoFiles" accept="image/*" multiple>
+        <button type="button" class="danger" id="clearPhotos">清除這台電腦上的照片</button>
+      </div>
+      <p class="msg" id="photoMsg" role="status"></p>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="tab-settings" data-panel="settings" hidden>
+    <form class="card" id="settingsForm">
+      <label class="field"><span>標題（座位表最上方）</span><input type="text" id="setTitle" maxlength="60"></label>
+      <label class="field"><span>班級密碼（給學生）</span><input type="text" id="setClassPw" maxlength="40" autocomplete="off"></label>
+      <label class="field"><input type="checkbox" id="setOpen"> 開放學生填寫</label>
+
+      <h3>教室格局</h3>
+      <p class="small muted">以教師視角：左邊為第 1 排，每排從最靠講桌的座位開始算第 1 個。「從第幾列開始」用來留前排空位，例如最左排第一個座位跟隔壁排的第 2 個同一列，就填 2。</p>
+      <label>排數 <input type="number" id="setCols" min="1" max="12"></label>
+      <div class="layout-cols" id="layoutCols"></div>
+      <label>講桌在第 <select id="setLectern"></select> 排前面</label>
+      <div class="map" id="layoutPreview"></div>
+
+      <h3>幹部</h3>
+      <textarea id="setCadres" rows="3"></textarea>
+      <h3>小老師科目</h3>
+      <textarea id="setTutors" rows="3"></textarea>
+      <p class="small muted">用頓號、逗號或換行分隔。</p>
+
+      <div class="row">
+        <button type="submit" class="primary" id="saveSettings">儲存設定</button>
+        <button type="button" id="resetDefaults">恢復預設格局與職位</button>
+      </div>
+      <p class="msg" id="settingsMsg" role="status"></p>
+    </form>
+  </section>
+
+  <!-- 架設說明 -->
+  <section id="tab-setup" data-panel="setup" hidden>
+    <div class="card">
+      <h2>後端連線</h2>
+      <p id="apiInfo" class="small"></p>
+      <div class="row"><button type="button" id="ping">測試連線</button><span class="msg" id="pingMsg" role="status"></span></div>
+    </div>
+    <div class="card">
+      <h2>第一次架設（約 5 分鐘）</h2>
+      <ol class="steps">
+        <li>在 Google 雲端硬碟新增一份 Google 試算表，名稱自訂，例如「座位表資料」。</li>
+        <li>在試算表選「擴充功能 → Apps Script」，刪掉編輯器裡原本的內容。</li>
+        <li>貼上後端程式碼：<button type="button" id="copyCode">複製程式碼</button> 或 <a href="apps-script.gs" download>下載 apps-script.gs</a>。<span class="msg" id="copyMsg"></span></li>
+        <li>把程式碼第一段的 <code>TEACHER_PASSWORD</code> 改成你的教師密碼（至少 4 個字），按儲存。</li>
+        <li>上方函式選單選 <code>setup</code>，按「執行」，依畫面授權。試算表會出現「設定」「名單」「填寫」三個工作表。</li>
+        <li>按右上角「部署 → 新增部署作業」，類型選「網頁應用程式」。執行身分選「我」，誰可以存取選「所有人」，按「部署」。</li>
+        <li>複製「網頁應用程式」網址（結尾是 <code>/exec</code>），貼到網站 repo 的 <code>tools/seating-chart/config.js</code> 裡的 <code>API_URL</code>。</li>
+        <li>回到這頁登入，到「名單與照片」匯入學校的照片名冊 PDF，再到「設定」設定標題、班級密碼並開放填寫。</li>
+        <li>把學生端網址和班級密碼給學生：<a href="./">學生填寫頁</a>。</li>
+      </ol>
+      <p class="small muted">之後若修改 Apps Script 程式碼：「部署 → 管理部署作業」，編輯原本那個部署並選「新版本」，網址就不會變。</p>
+      <p class="small muted">資料都在你自己的試算表裡，可以直接在試算表上查看或修改。「設定」工作表的值要保持文字格式。</p>
+    </div>
+  </section>
+
+  <p class="foot no-print"><a href="./">學生填寫頁</a> · <a href="../">回 Tools</a></p>
+</main>
+<script type="module" src="teacher.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>座位表填寫 | Tools</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <header>
+    <h1 id="title">座位表填寫</h1>
+    <p class="muted small">輸入班級密碼，選自己的座號，在平面圖上點自己的座位，再勾選幹部和小老師職位。</p>
+  </header>
+
+  <section id="login" class="card">
+    <form id="loginForm">
+      <label class="field"><span>班級密碼（老師會告訴你）</span>
+        <input id="classPw" type="password" autocomplete="off" required>
+      </label>
+      <button class="primary" type="submit" id="loginBtn">進入</button>
+      <p class="msg" id="loginMsg" role="status"></p>
+    </form>
+  </section>
+
+  <section id="form" hidden>
+    <p class="msg warn" id="closedMsg" hidden>目前沒有開放填寫，只能查看。</p>
+    <div class="card">
+      <h2>1. 你是誰</h2>
+      <label class="field"><span>座號與姓名</span>
+        <select id="who"><option value="">請選擇</option></select>
+      </label>
+      <p class="msg" id="whoMsg"></p>
+    </div>
+
+    <div class="card">
+      <h2>2. 你的座位</h2>
+      <div class="row">
+        <button type="button" id="flip" class="ghost">切換成學生視角</button>
+      </div>
+      <p class="hint" id="viewHint"></p>
+      <div id="map" class="map"></div>
+      <p class="picked" id="seatPicked">還沒選座位</p>
+    </div>
+
+    <div class="card">
+      <h2>3. 幹部（可複選，沒有就不用勾）</h2>
+      <div id="cadres" class="chips"></div>
+      <h2>4. 小老師（可複選，沒有就不用勾）</h2>
+      <div id="tutors" class="chips"></div>
+    </div>
+
+    <div class="card">
+      <button type="button" class="primary" id="submit">送出</button>
+      <button type="button" id="reload">重新整理</button>
+      <p class="msg" id="submitMsg" role="status"></p>
+      <div class="summary" id="done" hidden></div>
+    </div>
+  </section>
+
+  <p class="foot"><a href="teacher.html">教師端</a> · <a href="../">回 Tools</a></p>
+</main>
+
+<script type="module">
+import { call } from './api.js';
+import { parseLayout, seatLabel, isValidSeat, pad2, hasSeat } from './core.js';
+import { renderMap } from './map.js';
+
+const $ = id => document.getElementById(id);
+const STORE_KEY = 'seating-chart:student';
+const state = { pw: '', config: null, columns: [], roster: [], entries: [], me: null, col: null, pos: null, flipped: false };
+
+function remember(data) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+}
+function recall() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch { return {}; }
+}
+function setMsg(el, text, cls = '') {
+  el.textContent = text;
+  el.className = `msg ${cls}`;
+}
+const nameOf = no => state.roster.find(s => s.no === no)?.name || '';
+
+function apply(data) {
+  state.config = data.config;
+  state.columns = parseLayout(data.config.layout);
+  state.roster = data.roster;
+  state.entries = data.entries;
+  $('title').textContent = data.config.title || '座位表填寫';
+  document.title = `${data.config.title || '座位表填寫'} | Tools`;
+  $('closedMsg').hidden = data.config.open;
+  $('submit').disabled = !data.config.open;
+}
+
+function fillWho() {
+  const sel = $('who');
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">請選擇</option>';
+  for (const s of state.roster) {
+    const o = document.createElement('option');
+    o.value = s.no;
+    o.textContent = `${pad2(s.no)} ${s.name}`;
+    sel.appendChild(o);
+  }
+  sel.value = keep;
+}
+
+function chooseMe(no) {
+  state.me = no || null;
+  const mine = state.entries.find(e => e.no === state.me);
+  state.col = mine && hasSeat(mine) && isValidSeat(state.columns, mine.col, mine.pos) ? mine.col : null;
+  state.pos = state.col ? mine.pos : null;
+  for (const box of document.querySelectorAll('#cadres input, #tutors input')) {
+    const list = box.dataset.group === 'cadres' ? mine?.cadres : mine?.tutors;
+    box.checked = !!list?.includes(box.value);
+  }
+  if (!state.me) setMsg($('whoMsg'), '');
+  else if (mine) setMsg($('whoMsg'), '你之前填過了，下面是上次的內容，可以修改後再送出。', 'ok');
+  else setMsg($('whoMsg'), '');
+  $('done').hidden = true;
+  drawMap();
+  drawRoles();
+}
+
+function occupants(col, pos) {
+  return state.entries.filter(e => e.no !== state.me && e.col === col && e.pos === pos).map(e => nameOf(e.no));
+}
+
+function drawMap() {
+  renderMap($('map'), {
+    columns: state.columns,
+    lectern: state.config.lectern,
+    flipped: state.flipped,
+    cells: (col, pos) => {
+      if (state.me && state.col === col && state.pos === pos) {
+        const others = occupants(col, pos);
+        return { cls: 'mine', text: [nameOf(state.me), ...others].join('、') };
+      }
+      const others = occupants(col, pos);
+      return { cls: others.length > 1 ? 'conflict' : others.length ? 'taken' : '', text: others.join('、') };
+    },
+    onPick: pick,
+  });
+  $('flip').textContent = state.flipped ? '切換成老師視角（講桌在下）' : '切換成學生視角（講桌在上）';
+  $('viewHint').textContent = state.flipped
+    ? '目前是學生視角：坐在位子上面向講桌看到的樣子。'
+    : '目前是老師視角：站在講桌往教室看。圖的左邊是你們面向講桌時的右手邊。';
+  $('seatPicked').textContent = state.col ? `你選的是：${seatLabel(state.col, state.pos)}` : '還沒選座位';
+}
+
+function pick(col, pos) {
+  if (!state.me) {
+    setMsg($('whoMsg'), '請先選你的座號。', 'err');
+    $('who').focus();
+    return;
+  }
+  const others = occupants(col, pos);
+  if (others.length && !confirm(`${seatLabel(col, pos)}已經有 ${others.join('、')} 填了。確定也要選這個位子嗎？（老師會看到重複）`)) return;
+  state.col = col;
+  state.pos = pos;
+  drawMap();
+}
+
+function drawRoles() {
+  for (const group of ['cadres', 'tutors']) {
+    const box = $(group);
+    const checked = new Set([...box.querySelectorAll('input:checked')].map(i => i.value));
+    box.innerHTML = '';
+    for (const role of state.config[group]) {
+      const holders = state.entries.filter(e => e.no !== state.me && e[group].includes(role)).map(e => nameOf(e.no));
+      const label = document.createElement('label');
+      label.className = 'chip';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = role;
+      input.dataset.group = group;
+      input.checked = checked.has(role);
+      const span = document.createElement('span');
+      span.textContent = role;
+      if (holders.length) {
+        const small = document.createElement('small');
+        small.textContent = `已有 ${holders.join('、')}`;
+        span.appendChild(small);
+      }
+      label.append(input, span);
+      box.appendChild(label);
+    }
+  }
+}
+
+const picked = group => [...document.querySelectorAll(`#${group} input:checked`)].map(i => i.value);
+
+async function login(pw) {
+  setMsg($('loginMsg'), '連線中…');
+  $('loginBtn').disabled = true;
+  try {
+    const data = await call('student.load', { classPassword: pw });
+    state.pw = pw;
+    apply(data);
+    fillWho();
+    $('login').hidden = true;
+    $('form').hidden = false;
+    const saved = recall();
+    remember({ ...saved, pw });
+    drawRoles();
+    if (saved.no && state.roster.some(s => s.no === saved.no)) {
+      $('who').value = saved.no;
+      chooseMe(saved.no);
+    } else {
+      chooseMe(null);
+    }
+  } catch (err) {
+    setMsg($('loginMsg'), err.message, 'err');
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+async function reload() {
+  try {
+    const data = await call('student.load', { classPassword: state.pw });
+    const cadres = picked('cadres');
+    const tutors = picked('tutors');
+    const keep = { col: state.col, pos: state.pos };
+    apply(data);
+    drawRoles();
+    for (const i of document.querySelectorAll('#cadres input, #tutors input')) {
+      i.checked = (i.dataset.group === 'cadres' ? cadres : tutors).includes(i.value);
+    }
+    if (keep.col && isValidSeat(state.columns, keep.col, keep.pos)) Object.assign(state, keep);
+    drawMap();
+    setMsg($('submitMsg'), '已更新同學的填寫狀況。');
+  } catch (err) {
+    setMsg($('submitMsg'), err.message, 'err');
+  }
+}
+
+async function submit() {
+  if (!state.me) return setMsg($('submitMsg'), '請先選你的座號。', 'err');
+  if (!state.col) return setMsg($('submitMsg'), '請在平面圖上點你的座位。', 'err');
+  const body = { classPassword: state.pw, no: state.me, col: state.col, pos: state.pos, cadres: picked('cadres'), tutors: picked('tutors') };
+  setMsg($('submitMsg'), '送出中…');
+  $('submit').disabled = true;
+  try {
+    const data = await call('student.submit', body);
+    apply(data);
+    remember({ pw: state.pw, no: state.me });
+    drawMap();
+    drawRoles();
+    setMsg($('submitMsg'), '已送出。要修改的話，改完再按一次送出。', 'ok');
+    const done = $('done');
+    done.textContent = '';
+    const lines = [
+      `${pad2(state.me)} ${nameOf(state.me)}`,
+      `座位：${seatLabel(body.col, body.pos)}`,
+      `幹部：${body.cadres.join('、') || '無'}`,
+      `小老師：${body.tutors.join('、') || '無'}`,
+    ];
+    for (const t of lines) {
+      const div = document.createElement('div');
+      div.textContent = t;
+      done.appendChild(div);
+    }
+    done.hidden = false;
+  } catch (err) {
+    setMsg($('submitMsg'), err.message, 'err');
+  } finally {
+    $('submit').disabled = !state.config?.open;
+  }
+}
+
+$('loginForm').addEventListener('submit', e => { e.preventDefault(); login($('classPw').value.trim()); });
+$('who').addEventListener('change', e => {
+  chooseMe(Number(e.target.value) || null);
+  remember({ pw: state.pw, no: state.me });
+});
+$('flip').addEventListener('click', () => { state.flipped = !state.flipped; drawMap(); });
+$('submit').addEventListener('click', submit);
+$('reload').addEventListener('click', reload);
+
+const saved = recall();
+if (saved.pw) {
+  $('classPw').value = saved.pw;
+  login(saved.pw);
+}
+</script>
+</body>
+</html>

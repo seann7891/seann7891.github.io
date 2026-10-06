@@ -35,8 +35,8 @@ jobs:
           # If using the 'assets' git submodule from Chirpy Starter, uncomment above
           # (See: https://github.com/cotes2020/chirpy-starter/tree/main/assets)
 
-      - name: Test physics course
-        run: node --test tests/physics-iii.test.mjs
+      - name: Test physics course and tools
+        run: node --test tests/*.test.mjs
 
       - name: Setup Pages
         id: pages
