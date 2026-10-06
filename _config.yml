@@ -157,6 +157,7 @@ pwa:
     deny_paths:
       # - "/example"  # URLs match `<SITE_URL>/example/*` will not be cached by the PWA
       - "/macros/" # 座位表工具的 Apps Script 回應（script.google.com/macros/...）不可快取
+      - "/tools/seating-chart/" # 座位表工具本身不快取，更新後學生打開就是新版
 
 paginate: 10
 
