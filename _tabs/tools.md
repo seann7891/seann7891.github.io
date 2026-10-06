@@ -5,7 +5,7 @@ order: 5
 permalink: /tools/
 ---
 
-自製的小工具，全部在瀏覽器端執行，不上傳任何資料。
+自製的小工具，在瀏覽器端執行。除了座位表會把學生填寫的內容存到教師自己的 Google 試算表，其他工具不上傳任何資料。
 
 <div class="tool-list">
 {% for t in site.data.tools %}

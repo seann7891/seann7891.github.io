@@ -28,6 +28,6 @@ bundle exec jekyll s
 - 使用 Ruby 3.4 與 Jekyll Chirpy 7.6；主分支推送後由 GitHub Actions 建置、檢查內部連結並部署 GitHub Pages。
 - Pages 的 Source 使用 GitHub Actions。
 - Physics_Playground 導覽與頁面由 `_tabs/playground.md` 統一提供，內容在 `_includes/playground-content.html`。
-- Tools 目前保留附檔的施工中範例；尚未實作座位表工具。
+- Tools／座位表（`tools/seating-chart/`）：學生端 `index.html`、教師端 `teacher.html`。後端是綁在教師 Google 試算表上的 Apps Script（`apps-script.gs`），部署後把網址填進 `config.js`。學生姓名與照片不放進 repo：名單存在試算表，照片只存在教師瀏覽器。架設步驟見教師端「架設說明」。
 - `url` 可覆蓋工具或模擬器的預設路徑。
 - 未設定公開 email、頭像或留言服務。
