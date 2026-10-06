@@ -156,6 +156,7 @@ pwa:
     # shares the same domain name as the current website.
     deny_paths:
       # - "/example"  # URLs match `<SITE_URL>/example/*` will not be cached by the PWA
+      - "/macros/" # 座位表工具的 Apps Script 回應（script.google.com/macros/...）不可快取
 
 paginate: 10
 

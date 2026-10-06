@@ -96,6 +96,8 @@ test('Apps Script backend: setup, roster, config and student submission', () => 
   gas.setup();
   assert.ok(gas.sheets.has('設定') && gas.sheets.has('名單') && gas.sheets.has('填寫'));
   assert.deepEqual(gas.get(), { ok: true, service: 'seating-chart' });
+  assert.deepEqual(gas.get({ p: JSON.stringify({ action: 'ping' }) }), { ok: true }, 'GET fallback runs the same handler');
+  assert.equal(gas.get({ p: '{bad' }).ok, false);
 
   assert.equal(gas.post({ action: 'teacher.load', teacherPassword: 'wrong' }).error, '教師密碼錯誤');
   assert.equal(gas.post({ action: 'student.load', classPassword: '' }).error, '老師尚未設定班級密碼');

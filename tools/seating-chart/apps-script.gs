@@ -41,19 +41,22 @@ function setup() {
   Logger.log('完成。教師密碼' + (teacherPasswordReady_() ? '已設定' : '尚未設定，請修改 TEACHER_PASSWORD'));
 }
 
-function doGet() {
+// 網頁平常用 POST；瀏覽器擋下 POST 時改用 GET，把同樣的資料放在 ?p= 參數。
+function doGet(e) {
+  if (e && e.parameter && e.parameter.p) return json_(run_(e.parameter.p));
   return json_({ ok: true, service: 'seating-chart' });
 }
 
 function doPost(e) {
-  let result;
+  return json_(run_(e && e.postData ? e.postData.contents : '{}'));
+}
+
+function run_(text) {
   try {
-    const req = JSON.parse(e && e.postData ? e.postData.contents : '{}');
-    result = handle_(req);
+    return handle_(JSON.parse(text));
   } catch (err) {
-    result = { ok: false, error: String(err && err.message ? err.message : err) };
+    return { ok: false, error: String(err && err.message ? err.message : err) };
   }
-  return json_(result);
 }
 
 function handle_(req) {
