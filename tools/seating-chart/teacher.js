@@ -1,4 +1,4 @@
-import { call, apiUrl } from './api.js';
+import { call, apiUrl, diagnose } from './api.js';
 import {
   DEFAULT_LAYOUT, DEFAULT_CADRES, DEFAULT_TUTORS, MAX_COLUMNS, MAX_ROWS,
   parseLayout, formatLayout, totalRows, seatRow, seatKey, seatLabel, isValidSeat, hasSeat, seatCount,
@@ -551,12 +551,8 @@ $('settingsForm').addEventListener('submit', async e => {
 $('apiInfo').textContent = apiUrl ? `後端網址：${apiUrl}` : '還沒設定後端網址（config.js 的 API_URL 是空的），請照下面步驟架設。';
 $('ping').addEventListener('click', async () => {
   setMsg($('pingMsg'), '測試中…');
-  try {
-    await call('ping');
-    setMsg($('pingMsg'), '連線正常', 'ok');
-  } catch (err) {
-    setMsg($('pingMsg'), err.message, 'err');
-  }
+  const r = await diagnose();
+  setMsg($('pingMsg'), r.text, r.ok ? 'ok' : 'err');
 });
 $('copyCode').addEventListener('click', async () => {
   try {

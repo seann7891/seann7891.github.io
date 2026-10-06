@@ -72,6 +72,6 @@ export function loadAppsScript(teacherPassword = 'teach1234') {
     sheets,
     setup: () => context.setup(),
     post: body => JSON.parse(context.doPost({ postData: { contents: JSON.stringify(body) } }).text),
-    get: () => JSON.parse(context.doGet().text),
+    get: params => JSON.parse(context.doGet(params ? { parameter: params } : undefined).text),
   };
 }
