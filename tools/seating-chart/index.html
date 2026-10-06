@@ -52,6 +52,18 @@
     </div>
 
     <div class="card">
+      <h2>5. 大頭照（選填，每人一張）</h2>
+      <p class="small muted">放在座位表上讓老師認人。重新上傳會換掉舊的照片。照片存在老師的 Google 試算表，同學看不到。</p>
+      <div class="photo-pick">
+        <img id="photoPreview" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="大頭照預覽" hidden>
+        <div class="stack">
+          <input type="file" id="photoFile" accept="image/*">
+          <p class="small" id="photoMsg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <button type="button" class="primary" id="submit">送出</button>
       <button type="button" id="reload">重新整理</button>
       <p class="msg" id="submitMsg" role="status"></p>
@@ -66,10 +78,11 @@
 import { call } from './api.js';
 import { parseLayout, seatLabel, isValidSeat, pad2, hasSeat } from './core.js';
 import { renderMap } from './map.js';
+import { fileToUploadPhoto } from './photos.js';
 
 const $ = id => document.getElementById(id);
 const STORE_KEY = 'seating-chart:student';
-const state = { pw: '', config: null, columns: [], roster: [], entries: [], me: null, col: null, pos: null, flipped: false };
+const state = { pw: '', config: null, columns: [], roster: [], entries: [], photoNos: [], photo: null, me: null, col: null, pos: null, flipped: false };
 
 function remember(data) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
@@ -88,6 +101,7 @@ function apply(data) {
   state.columns = parseLayout(data.config.layout);
   state.roster = data.roster;
   state.entries = data.entries;
+  state.photoNos = data.photoNos || [];
   $('title').textContent = data.config.title || '座位表填寫';
   document.title = `${data.config.title || '座位表填寫'} | Tools`;
   $('closedMsg').hidden = data.config.open;
@@ -120,6 +134,7 @@ function chooseMe(no) {
   else if (mine) setMsg($('whoMsg'), '你之前填過了，下面是上次的內容，可以修改後再送出。', 'ok');
   else setMsg($('whoMsg'), '');
   $('done').hidden = true;
+  clearPhoto();
   drawMap();
   drawRoles();
 }
@@ -241,6 +256,7 @@ async function submit() {
   if (!state.me) return setMsg($('submitMsg'), '請先選你的座號。', 'err');
   if (!state.col) return setMsg($('submitMsg'), '請在平面圖上點你的座位。', 'err');
   const body = { classPassword: state.pw, no: state.me, col: state.col, pos: state.pos, cadres: picked('cadres'), tutors: picked('tutors') };
+  if (state.photo) body.photo = state.photo;
   setMsg($('submitMsg'), '送出中…');
   $('submit').disabled = true;
   try {
@@ -249,6 +265,9 @@ async function submit() {
     remember({ pw: state.pw, no: state.me });
     drawMap();
     drawRoles();
+    state.photo = null;
+    $('photoFile').value = '';
+    showPhotoStatus();
     setMsg($('submitMsg'), '已送出。要修改的話，改完再按一次送出。', 'ok');
     const done = $('done');
     done.textContent = '';
@@ -257,6 +276,7 @@ async function submit() {
       `座位：${seatLabel(body.col, body.pos)}`,
       `幹部：${body.cadres.join('、') || '無'}`,
       `小老師：${body.tutors.join('、') || '無'}`,
+      `大頭照：${body.photo ? '已上傳新照片' : state.photoNos.includes(state.me) ? '沿用之前的照片' : '沒有'}`,
     ];
     for (const t of lines) {
       const div = document.createElement('div');
@@ -278,6 +298,31 @@ $('who').addEventListener('change', e => {
 });
 $('flip').addEventListener('click', () => { state.flipped = !state.flipped; drawMap(); });
 $('submit').addEventListener('click', submit);
+
+function showPhotoStatus() {
+  const has = state.me && state.photoNos.includes(state.me);
+  $('photoMsg').textContent = state.photo ? '按「送出」後才會上傳。'
+    : has ? '你已經上傳過照片。要換照片就再選一張。' : '還沒有上傳照片。';
+}
+function clearPhoto() {
+  state.photo = null;
+  $('photoFile').value = '';
+  $('photoPreview').hidden = true;
+  showPhotoStatus();
+}
+$('photoFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return clearPhoto();
+  try {
+    state.photo = await fileToUploadPhoto(file);
+    $('photoPreview').src = state.photo;
+    $('photoPreview').hidden = false;
+    showPhotoStatus();
+  } catch (err) {
+    clearPhoto();
+    $('photoMsg').textContent = `這張照片無法使用：${err.message}`;
+  }
+});
 $('reload').addEventListener('click', reload);
 
 const saved = recall();

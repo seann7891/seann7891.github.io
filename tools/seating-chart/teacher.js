@@ -5,7 +5,7 @@ import {
   pad2, splitList, parseRosterText, formatRosterText, summarize, moveStudent,
 } from './core.js';
 import { renderMap } from './map.js';
-import { loadPhotos, savePhotos, clearPhotos, readPhotoFiles, readRosterPdf } from './photos.js';
+import { loadPhotos, savePhotos, clearPhotos, readPhotoFiles, readRosterPdf, fileToUploadPhoto } from './photos.js';
 
 const $ = id => document.getElementById(id);
 const PW_KEY = 'seating-chart:teacher';
@@ -20,7 +20,8 @@ const state = {
   entries: [],
   dirty: new Set(),
   selected: null,
-  photos: new Map(),
+  photos: new Map(), // 這台電腦上的照片（從 PDF 或照片檔匯入）
+  serverPhotos: {}, // 學生上傳、存在試算表的照片，優先使用
   preview: null,
 };
 
@@ -38,6 +39,7 @@ function store(kind, key, value) {
 }
 const nameOf = no => state.roster.find(s => s.no === no)?.name || `${no}號`;
 const entryOf = no => state.entries.find(e => e.no === no);
+const photoOf = no => state.serverPhotos[no] || state.photos.get(no);
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
@@ -69,6 +71,7 @@ function apply(data) {
   state.classPassword = data.classPassword;
   state.roster = data.roster;
   state.entries = data.entries.map(e => ({ ...e }));
+  if (data.photos) state.serverPhotos = data.photos;
   state.dirty.clear();
   state.selected = null;
   updateStatus();
@@ -149,18 +152,21 @@ function renderSheet() {
         const rl = rolesText(e.cadres);
         const occ = el('div', { class: `occ${state.selected === no ? ' selected' : ''}`, dataset: { no } });
         if (showPhotos) {
-          const url = state.photos.get(no);
+          const url = photoOf(no);
           occ.append(url ? el('img', { class: 'ph', src: url, alt: nameOf(no) }) : el('div', { class: 'ph none', textContent: '無照片' }));
+        } else if (nos.length > 1) {
+          occ.append(el('div', { class: 'nm', textContent: nameOf(no) }));
         }
-        occ.append(el('div', { class: 'nm', textContent: nameOf(no) }), el('div', { class: `rl${rl.length > 5 ? ' long' : ''}`, textContent: rl }));
+        occ.append(el('div', { class: `rl${rl.length > 5 ? ' long' : ''}`, textContent: rl }));
         occs.append(occ);
       }
+      const label = nos.map(no => `${no} ${nameOf(no)}`).join(' / ');
       const seat = el('div', {
         class: `seat${nos.length ? '' : ' empty'}${nos.length > 1 ? ' conflict' : ''}${state.selected ? ' drop-target' : ''}`,
         dataset: { col, pos },
-        title: seatLabel(col, pos),
+        title: `${seatLabel(col, pos)}${label ? `：${label}` : ''}`,
         style: `grid-column:${col};grid-row:${rows - seatRow(columns, col, pos) + 1}`,
-      }, occs, el('div', { class: 'no', textContent: nos.join(' / ') }));
+      }, occs, el('div', { class: `no${nos.length > 1 ? ' multi' : ''}`, textContent: label }));
       chart.append(seat);
     }
   });
@@ -176,7 +182,8 @@ function renderTables(sum) {
     const nos = sum.cadreHolders.get(role) || [];
     return [el('td', { class: 'n', textContent: nos.join('、') }), el('td', { textContent: nos.map(nameOf).join('、') })];
   };
-  const cadreTable = el('table', {}, el('caption', { textContent: '幹部' }));
+  const cols = widths => el('colgroup', {}, ...widths.map(w => el('col', { style: `width:${w}%` })));
+  const cadreTable = el('table', { class: 'fixed' }, el('caption', { textContent: '幹部' }), cols([16, 8, 26, 16, 8, 26]));
   const tbody = el('tbody');
   for (let i = 0; i < half; i++) {
     const tr = el('tr');
@@ -188,7 +195,7 @@ function renderTables(sum) {
   }
   cadreTable.append(tbody);
 
-  const tutorTable = el('table', {}, el('caption', { textContent: '小老師' }));
+  const tutorTable = el('table', { class: 'fixed' }, el('caption', { textContent: '小老師' }), cols([20, 80]));
   const tb2 = el('tbody');
   for (const subject of tutors) {
     const nos = sum.tutorHolders.get(subject) || [];
@@ -251,6 +258,12 @@ function renderSide() {
       : '目前沒有座位。點座位表上的位置放進去。';
     roleBoxes($('selCadres'), 'cadres', e);
     roleBoxes($('selTutors'), 'tutors', e);
+    const url = photoOf(no);
+    $('selPhoto').hidden = !url;
+    if (url) $('selPhoto').src = url;
+    $('selPhotoInfo').textContent = state.serverPhotos[no] ? '照片：學生上傳（存在試算表）'
+      : url ? '照片：這台電腦上的照片' : '照片：沒有';
+    $('deletePhoto').hidden = !state.serverPhotos[no];
   }
 
   $('saveEntries').disabled = !state.dirty.size;
@@ -321,6 +334,34 @@ $('unseat').addEventListener('click', () => {
 });
 $('deselect').addEventListener('click', () => select(null));
 
+async function savePhoto(no, photo) {
+  setMsg($('chartMsg'), '照片儲存中…');
+  try {
+    const data = await call('teacher.savePhoto', { teacherPassword: state.pw, no, photo });
+    // 保留尚未儲存的座位變更
+    state.serverPhotos = data.photos || {};
+    renderSheet();
+    renderSide();
+    renderRoster();
+    setMsg($('chartMsg'), '照片已儲存', 'ok');
+  } catch (err) {
+    setMsg($('chartMsg'), err.message, 'err');
+  }
+}
+$('replacePhoto').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !state.selected) return;
+  try {
+    await savePhoto(state.selected, await fileToUploadPhoto(file));
+  } catch (err) {
+    setMsg($('chartMsg'), err.message, 'err');
+  }
+});
+$('deletePhoto').addEventListener('click', () => {
+  if (state.selected && confirm(`刪除 ${nameOf(state.selected)} 上傳的照片？`)) savePhoto(state.selected, null);
+});
+
 $('saveEntries').addEventListener('click', async () => {
   const list = [...state.dirty].map(no => entryOf(no)).filter(Boolean)
     .map(e => ({ no: e.no, col: e.col, pos: e.pos, cadres: e.cadres, tutors: e.tutors }));
@@ -357,11 +398,12 @@ function photoFigure(no, name, url) {
 }
 
 function renderRoster() {
-  const withPhoto = state.roster.filter(s => state.photos.has(s.no)).length;
+  const uploaded = state.roster.filter(s => state.serverPhotos[s.no]).length;
+  const local = state.roster.filter(s => !state.serverPhotos[s.no] && state.photos.has(s.no)).length;
   $('rosterInfo').textContent = state.roster.length
-    ? `共 ${state.roster.length} 人，這台電腦上有 ${withPhoto} 張照片。`
+    ? `共 ${state.roster.length} 人：${uploaded} 人用學生上傳的照片，${local} 人用這台電腦上的照片，${state.roster.length - uploaded - local} 人沒有照片。`
     : '還沒有名單。';
-  $('rosterGrid').replaceChildren(...state.roster.map(s => photoFigure(s.no, s.name, state.photos.get(s.no))));
+  $('rosterGrid').replaceChildren(...state.roster.map(s => photoFigure(s.no, s.name, photoOf(s.no))));
   if (!$('rosterText').value) $('rosterText').value = formatRosterText(state.roster);
 }
 
@@ -374,7 +416,7 @@ function showPreview(roster, photos, source) {
   if (photos) info.push(`${photos.size} 張照片`);
   if (removed.length && state.roster.length) info.push(`目前名單裡有 ${removed.length} 人不在這份名單中`);
   $('previewInfo').textContent = info.join('，');
-  $('previewGrid').replaceChildren(...roster.map(s => photoFigure(s.no, s.name, photos?.get(s.no) || state.photos.get(s.no))));
+  $('previewGrid').replaceChildren(...roster.map(s => photoFigure(s.no, s.name, state.serverPhotos[s.no] || photos?.get(s.no) || state.photos.get(s.no))));
   $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -572,7 +614,7 @@ $('loginForm').addEventListener('submit', e => {
 });
 
 (async () => {
-  $('showPhotos').checked = store('localStorage', PHOTO_PREF) === '1';
+  $('showPhotos').checked = store('localStorage', PHOTO_PREF) !== '0';
   state.photos = await loadPhotos();
   if (!apiUrl) {
     $('status').textContent = '尚未接上後端';

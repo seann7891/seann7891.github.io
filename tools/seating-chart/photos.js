@@ -63,16 +63,34 @@ export async function clearPhotos() {
   } catch { /* ignore */ }
 }
 
-function toPortrait(source, sx, sy, sw, sh) {
+// 從中央裁成 4:5 直式照片。
+function toPortrait(source, sx, sy, sw, sh, outW = PHOTO_W, outH = PHOTO_H, quality = 0.85) {
   const canvas = document.createElement('canvas');
-  canvas.width = PHOTO_W;
-  canvas.height = PHOTO_H;
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext('2d');
-  const scale = Math.max(PHOTO_W / sw, PHOTO_H / sh);
-  const w = PHOTO_W / scale;
-  const h = PHOTO_H / scale;
-  ctx.drawImage(source, sx + (sw - w) / 2, sy + (sh - h) / 2, w, h, 0, 0, PHOTO_W, PHOTO_H);
-  return canvas.toDataURL('image/jpeg', 0.85);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, outW, outH);
+  const scale = Math.max(outW / sw, outH / sh);
+  const w = outW / scale;
+  const h = outH / scale;
+  ctx.drawImage(source, sx + (sw - w) / 2, sy + (sh - h) / 2, w, h, 0, 0, outW, outH);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+// 學生上傳的照片：裁成直式並壓縮到試算表一格放得下的大小。
+export const UPLOAD_MAX_CHARS = 45000;
+export async function fileToUploadPhoto(file) {
+  const bmp = await createImageBitmap(file);
+  try {
+    for (const [w, h, q] of [[240, 300, 0.82], [240, 300, 0.7], [200, 250, 0.7], [160, 200, 0.6]]) {
+      const url = toPortrait(bmp, 0, 0, bmp.width, bmp.height, w, h, q);
+      if (url.length <= UPLOAD_MAX_CHARS) return url;
+    }
+  } finally {
+    bmp.close();
+  }
+  throw new Error('照片無法壓縮到上傳大小');
 }
 
 // 照片檔：檔名裡的第一個數字當作座號，例如 01.jpg、07_陳大文.png。

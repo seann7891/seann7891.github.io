@@ -16,6 +16,9 @@ const TEACHER_PASSWORD = '請改成教師密碼';
 const SHEET_CONFIG = '設定';
 const SHEET_ROSTER = '名單';
 const SHEET_ENTRIES = '填寫';
+const SHEET_PHOTOS = '照片';
+const PHOTO_HEADERS = ['座號', '照片', '更新時間', '更新者'];
+const PHOTO_MAX_CHARS = 45000; // 試算表一格最多 50000 字元
 const ENTRY_HEADERS = ['座號', '姓名', '排', '個', '幹部', '小老師', '更新時間', '更新者'];
 const CONFIG_FIELDS = [
   ['title', '標題', '班級座位表'],
@@ -38,6 +41,7 @@ function setup() {
   roster.getRange(1, 2, 500, 1).setNumberFormat('@');
   const entries = ensureSheet_(ss, SHEET_ENTRIES, ENTRY_HEADERS);
   entries.getRange(1, 5, 500, 2).setNumberFormat('@');
+  photoSheet_();
   Logger.log('完成。教師密碼' + (teacherPasswordReady_() ? '已設定' : '尚未設定，請修改 TEACHER_PASSWORD'));
 }
 
@@ -71,7 +75,10 @@ function handle_(req) {
       return withLock_(() => studentSubmit_(req));
     case 'teacher.load':
       checkTeacher_(req.teacherPassword);
-      return teacherState_();
+      return teacherState_(true);
+    case 'teacher.savePhoto':
+      checkTeacher_(req.teacherPassword);
+      return withLock_(() => { savePhoto_(req.no, req.photo || null, '教師'); return teacherState_(true); });
     case 'teacher.saveConfig':
       checkTeacher_(req.teacherPassword);
       return withLock_(() => { saveConfig_(req.config || {}); return teacherState_(); });
@@ -191,19 +198,37 @@ function publicConfig_(config) {
     cadres: config.cadres, tutors: config.tutors };
 }
 
+// 學生端只知道誰已經上傳照片，看不到照片本身。
 function publicState_() {
   return {
     ok: true,
     config: publicConfig_(readConfig_()),
     roster: readRoster_(),
     entries: readEntries_().map(e => ({ no: e.no, col: e.col, pos: e.pos, cadres: e.cadres, tutors: e.tutors })),
+    photoNos: Object.keys(readPhotos_()).map(Number),
   };
 }
 
-function teacherState_() {
+// 照片資料量大，只在教師端載入或更動照片時才回傳。
+function teacherState_(withPhotos) {
   const config = readConfig_();
-  return { ok: true, config: publicConfig_(config), classPassword: config.classPassword,
+  const state = { ok: true, config: publicConfig_(config), classPassword: config.classPassword,
     roster: readRoster_(), entries: readEntries_() };
+  if (withPhotos) state.photos = readPhotos_();
+  return state;
+}
+
+function photoSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(SHEET_PHOTOS) || ensureSheet_(ss, SHEET_PHOTOS, PHOTO_HEADERS);
+}
+
+function readPhotos_() {
+  const photos = {};
+  rows_(photoSheet_(), PHOTO_HEADERS.length, false).forEach(r => {
+    if (Number(r[0]) > 0 && String(r[1]).indexOf('data:image/') === 0) photos[Number(r[0])] = String(r[1]);
+  });
+  return photos;
 }
 
 // ---------- 寫入 ----------
@@ -214,8 +239,29 @@ function studentSubmit_(req) {
   const roster = readRoster_();
   const entry = cleanEntry_(req, config, roster);
   if (entry.col === null) throw new Error('請選擇座位');
+  if (req.photo) checkPhoto_(req.photo);
   writeEntries_([entry], [], roster, '學生');
+  if (req.photo) savePhoto_(entry.no, req.photo, '學生');
   return publicState_();
+}
+
+function checkPhoto_(photo) {
+  if (typeof photo !== 'string' || !/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(photo)) throw new Error('照片格式錯誤');
+  if (photo.length > PHOTO_MAX_CHARS) throw new Error('照片太大');
+}
+
+// 每人一張：有新照片就覆蓋舊的；photo 為 null 時刪除。
+function savePhoto_(no, photo, by) {
+  no = Number(no);
+  if (!readRoster_().some(s => s.no === no)) throw new Error('名單裡沒有座號 ' + no);
+  if (photo !== null) checkPhoto_(photo);
+  const sh = photoSheet_();
+  const rows = rows_(sh, PHOTO_HEADERS.length, false).filter(r => Number(r[0]) > 0 && Number(r[0]) !== no);
+  if (photo !== null) rows.push([no, photo, new Date(), by]);
+  rows.sort((a, b) => Number(a[0]) - Number(b[0]));
+  const last = sh.getLastRow();
+  if (last >= 2) sh.getRange(2, 1, last - 1, PHOTO_HEADERS.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, PHOTO_HEADERS.length).setValues(rows);
 }
 
 function saveConfig_(input) {

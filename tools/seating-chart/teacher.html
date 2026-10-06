@@ -54,6 +54,14 @@
           <p class="small muted" id="editorHint">點座位表上的學生選取；再點另一個座位就會移過去，若那裡有人就互換（從重複座位移出時，對方會改放到「還沒有座位」）。</p>
           <div id="editorBody" hidden>
             <p><strong id="selName"></strong><br><span class="small" id="selSeat"></span></p>
+            <div class="photo-pick">
+              <img id="selPhoto" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="大頭照" hidden>
+              <div class="stack small">
+                <span id="selPhotoInfo"></span>
+                <label>換照片 <input type="file" id="replacePhoto" accept="image/*"></label>
+                <button type="button" class="danger" id="deletePhoto" hidden>刪除上傳的照片</button>
+              </div>
+            </div>
             <h3>幹部</h3>
             <div class="roles" id="selCadres"></div>
             <h3>小老師</h3>
@@ -80,7 +88,7 @@
   <section id="tab-roster" data-panel="roster" hidden>
     <div class="card">
       <h2>從學校照片名冊 PDF 匯入</h2>
-      <p class="small muted">校務系統的「導師班級照片名冊」PDF。姓名與座號會存到你的 Google 試算表；照片只存在這台電腦的瀏覽器，不會上傳。</p>
+      <p class="small muted">校務系統的「導師班級照片名冊」PDF。姓名與座號會存到你的 Google 試算表；PDF 裡的照片只存在這台電腦的瀏覽器，不會上傳。學生自己上傳的照片存在試算表的「照片」工作表，會優先顯示。</p>
       <input type="file" id="pdfFile" accept="application/pdf">
       <p class="msg" id="pdfMsg" role="status"></p>
     </div>
