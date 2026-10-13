@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   DEFAULT_LAYOUT, DEFAULT_CADRES, DEFAULT_TUTORS, parseLayout, formatLayout, totalRows, seatRow, seatCount, isValidSeat,
   splitList, parseRosterText, summarize, moveStudent, matchPdfRoster,
@@ -95,8 +96,8 @@ test('Apps Script backend: setup, roster, config and student submission', () => 
   const gas = loadAppsScript();
   gas.setup();
   assert.ok(gas.sheets.has('設定') && gas.sheets.has('名單') && gas.sheets.has('填寫'));
-  assert.deepEqual(gas.get(), { ok: true, service: 'seating-chart' });
-  assert.deepEqual(gas.get({ p: JSON.stringify({ action: 'ping' }) }), { ok: true }, 'GET fallback runs the same handler');
+  assert.deepEqual(gas.get(), { ok: true, service: 'seating-chart', version: 3 });
+  assert.deepEqual(gas.get({ p: JSON.stringify({ action: 'ping' }) }), { ok: true, version: 3 }, 'GET fallback runs the same handler');
   assert.equal(gas.get({ p: '{bad' }).ok, false);
 
   assert.equal(gas.post({ action: 'teacher.load', teacherPassword: 'wrong' }).error, '教師密碼錯誤');
@@ -119,6 +120,7 @@ test('Apps Script backend: setup, roster, config and student submission', () => 
   r = gas.post({ action: 'student.load', ...s });
   assert.ok(r.ok);
   assert.equal(r.classPassword, undefined, 'students never receive the class password field');
+  assert.equal(r.version, 3, 'pages can tell an outdated backend apart');
   assert.equal(gas.post({ action: 'student.submit', ...s, no: 1, col: 3, pos: 2 }).error, '目前沒有開放填寫');
 
   gas.post({ action: 'teacher.saveConfig', ...t, config: { open: true } });
@@ -174,4 +176,11 @@ test('Apps Script layout parser agrees with the page', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(gas.context.parseLayout_(text))), parseLayout(text));
   }
   for (const bad of ['', '0', '3/14', 'x']) assert.throws(() => gas.context.parseLayout_(bad));
+});
+
+test('page and Apps Script agree on the backend version', () => {
+  const gs = fs.readFileSync(new URL('../tools/seating-chart/apps-script.gs', import.meta.url), 'utf8');
+  const api = fs.readFileSync(new URL('../tools/seating-chart/api.js', import.meta.url), 'utf8');
+  const v = re => Number(re.exec(gs + api)?.[1]);
+  assert.equal(v(/const BACKEND_VERSION = (\d+);/), Number(/export const BACKEND_VERSION = (\d+);/.exec(api)[1]));
 });
