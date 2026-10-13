@@ -1,4 +1,4 @@
-import { call, apiUrl, diagnose } from './api.js';
+import { call, apiUrl, diagnose, BACKEND_VERSION } from './api.js';
 import {
   DEFAULT_LAYOUT, DEFAULT_CADRES, DEFAULT_TUTORS, MAX_COLUMNS, MAX_ROWS,
   parseLayout, formatLayout, totalRows, seatRow, seatKey, seatLabel, isValidSeat, hasSeat, seatCount,
@@ -69,6 +69,7 @@ function apply(data) {
   state.config = data.config;
   state.columns = parseLayout(data.config.layout);
   state.classPassword = data.classPassword;
+  state.backendVersion = data.version || 0;
   state.roster = data.roster;
   state.entries = data.entries.map(e => ({ ...e }));
   if (data.photos) state.serverPhotos = data.photos;
@@ -84,6 +85,9 @@ function updateStatus() {
   if (!c) return;
   const filled = state.entries.filter(e => state.roster.some(s => s.no === e.no)).length;
   $('status').textContent = `${c.title}｜${c.open ? '開放填寫中' : '目前不開放填寫'}｜已填 ${filled} / ${state.roster.length} 人`;
+  if (!(state.backendVersion >= BACKEND_VERSION)) {
+    $('status').textContent += '｜⚠ 後端是舊版，學生上傳的照片不會被儲存。請到「架設說明」按「測試連線」查看處理方式。';
+  }
 }
 
 async function login(pw) {

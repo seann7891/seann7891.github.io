@@ -13,6 +13,9 @@
 
 const TEACHER_PASSWORD = '請改成教師密碼';
 
+// 網頁用這個號碼判斷後端是不是最新版，改功能時遞增。
+const BACKEND_VERSION = 3;
+
 const SHEET_CONFIG = '設定';
 const SHEET_ROSTER = '名單';
 const SHEET_ENTRIES = '填寫';
@@ -48,7 +51,7 @@ function setup() {
 // 網頁平常用 POST；瀏覽器擋下 POST 時改用 GET，把同樣的資料放在 ?p= 參數。
 function doGet(e) {
   if (e && e.parameter && e.parameter.p) return json_(run_(e.parameter.p));
-  return json_({ ok: true, service: 'seating-chart' });
+  return json_({ ok: true, service: 'seating-chart', version: BACKEND_VERSION });
 }
 
 function doPost(e) {
@@ -66,7 +69,7 @@ function run_(text) {
 function handle_(req) {
   switch (req.action) {
     case 'ping':
-      return { ok: true };
+      return { ok: true, version: BACKEND_VERSION };
     case 'student.load':
       checkClass_(req.classPassword);
       return publicState_();
@@ -202,6 +205,7 @@ function publicConfig_(config) {
 function publicState_() {
   return {
     ok: true,
+    version: BACKEND_VERSION,
     config: publicConfig_(readConfig_()),
     roster: readRoster_(),
     entries: readEntries_().map(e => ({ no: e.no, col: e.col, pos: e.pos, cadres: e.cadres, tutors: e.tutors })),
@@ -212,7 +216,7 @@ function publicState_() {
 // 照片資料量大，只在教師端載入或更動照片時才回傳。
 function teacherState_(withPhotos) {
   const config = readConfig_();
-  const state = { ok: true, config: publicConfig_(config), classPassword: config.classPassword,
+  const state = { ok: true, version: BACKEND_VERSION, config: publicConfig_(config), classPassword: config.classPassword,
     roster: readRoster_(), entries: readEntries_() };
   if (withPhotos) state.photos = readPhotos_();
   return state;

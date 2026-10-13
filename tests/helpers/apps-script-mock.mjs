@@ -45,8 +45,8 @@ class Sheet {
   rows() { return this.data.slice(1, this.getLastRow()); }
 }
 
-export function loadAppsScript(teacherPassword = 'teach1234') {
-  const url = new URL('../../tools/seating-chart/apps-script.gs', import.meta.url);
+export function loadAppsScript(teacherPassword = 'teach1234', sourcePath = null) {
+  const url = sourcePath || new URL('../../tools/seating-chart/apps-script.gs', import.meta.url);
   let source = fs.readFileSync(url, 'utf8');
   if (teacherPassword !== null) {
     source = source.replace("const TEACHER_PASSWORD = '請改成教師密碼';", `const TEACHER_PASSWORD = ${JSON.stringify(teacherPassword)};`);

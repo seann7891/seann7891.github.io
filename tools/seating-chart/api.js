@@ -13,6 +13,11 @@ function resolveApiUrl() {
 
 export const apiUrl = resolveApiUrl();
 
+// 這個網頁需要的後端版本（apps-script.gs 的 BACKEND_VERSION）。
+export const BACKEND_VERSION = 3;
+const OLD_BACKEND = '後端是舊版程式碼：請把最新的 apps-script.gs 貼進 Apps Script，到「部署 → 管理部署作業」編輯原本的部署並選「新版本」。'
+  + '不要用「新增部署作業」，那會產生新網址，網站還是連到舊的。';
+
 const NO_ACCESS = '連不上後端。請用無痕視窗打開 Apps Script 網址：如果要求登入 Google，代表部署的「誰可以存取」不是「所有人」'
   + '（例如選成「所有已登入 Google 帳戶的使用者」），要改成「所有人」並部署新版本。';
 
@@ -64,12 +69,14 @@ export async function call(action, payload = {}) {
 // 逐項檢查連線，回傳可讀的結果（給「測試連線」用）。
 export async function diagnose() {
   const lines = [];
+  let version = null;
   const probe = async (label, fn) => {
     try {
       const res = await fn();
       const text = await res.text();
       let data = null;
       try { data = JSON.parse(text); } catch { /* not json */ }
+      if (data && data.version) version = data.version;
       if (data && data.ok) lines.push(`✓ ${label}：正常`);
       else if (data) lines.push(`✗ ${label}：${data.error || text.slice(0, 80)}`);
       else lines.push(`✗ ${label}：回應不是資料（可能是 Google 登入頁）`);
@@ -82,9 +89,10 @@ export async function diagnose() {
   const ok1 = await probe('GET 連線', () => fetch(`${apiUrl}${apiUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' }));
   const ok2 = await probe('POST 連線', () => send(JSON.stringify({ action: 'ping' }), 'post'));
   const ok3 = await probe('GET 備援', () => send(JSON.stringify({ action: 'ping' }), 'get'));
+  if (ok1) lines.push(version >= BACKEND_VERSION ? `✓ 後端版本：${version}（最新）` : `✗ 後端版本：${version || '舊版'}。${OLD_BACKEND}`);
   lines.push(`網站離線快取（Service Worker）：${navigator.serviceWorker?.controller ? '有' : '無'}`);
   if (!ok1 && !ok2 && !ok3) lines.push(NO_ACCESS);
   else if (!ok2 && ok3) lines.push('POST 被擋，會自動改用 GET，可以正常使用。');
   else if (!ok2 && !ok3) lines.push('後端程式碼可能是舊版：請貼上最新的 apps-script.gs 並部署新版本。');
-  return { ok: ok2 || ok3, text: lines.join('\n') };
+  return { ok: (ok2 || ok3) && version >= BACKEND_VERSION, text: lines.join('\n') };
 }
