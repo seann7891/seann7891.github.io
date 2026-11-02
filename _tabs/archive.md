@@ -8,8 +8,10 @@ description: 研習的簡報、錄影與雲端資料。
 
 研習的簡報、錄影與雲端資料。
 
+{% comment %}依 date 由新到舊排；沒填 date 的排最後{% endcomment %}
+{% assign workshops = site.data.archive | sort: 'date', 'first' | reverse %}
 <div class="archive-list">
-{% for w in site.data.archive %}
+{% for w in workshops %}
   <div class="archive-item">
     <h3>{{ w.title | escape }}</h3>
     <p class="archive-meta">
