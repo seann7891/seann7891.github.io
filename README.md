@@ -13,6 +13,10 @@ Jekyll + Chirpy 部落格，附 Tools 與 Physics_Playground 兩個獨立區。
 2. 在 `_data/tools.yml` 加一筆
 3. push
 
+## 新增一場研習（Archive）
+1. 在 `_data/archive.yml` 最上面加一筆（title / date / venue / desc / url），第一次加時把 `[]` 刪掉
+2. push
+
 ## 新增分類
 改 `_data/playground.yml` 的 `categories`；若要專屬顏色，在 `assets/css/playground.css` 加一個 `--c-<id>` 變數與對應規則。
 

@@ -1,0 +1,10 @@
+# 校外研習的雲端資料。每辦一場就在最上面加一筆（新的在上）。
+# date 用 YYYY-MM-DD；venue、desc 可省略。url 填雲端資料夾的分享連結。
+#
+# - title: 研習名稱
+#   date: 2026-11-01
+#   venue: 主辦單位／地點
+#   desc: 一句話說明內容。
+#   url: https://drive.google.com/drive/folders/xxxxxxxx
+
+[]
