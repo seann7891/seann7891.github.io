@@ -14,7 +14,7 @@ Jekyll + Chirpy 部落格，附 Tools 與 Physics_Playground 兩個獨立區。
 3. push
 
 ## 新增一場研習（Archive）
-1. 在 `_data/archive.yml` 最上面加一筆（title / date / venue / desc / url），第一次加時把 `[]` 刪掉
+1. 在 `_data/archive.yml` 最上面加一筆（title / date / venue / desc，加上 url 或 links）
 2. push
 
 ## 新增分類

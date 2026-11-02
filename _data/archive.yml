@@ -1,10 +1,19 @@
-# 校外研習的雲端資料。每辦一場就在最上面加一筆（新的在上）。
-# date 用 YYYY-MM-DD；venue、desc 可省略。url 填雲端資料夾的分享連結。
+# 研習的雲端資料。每辦一場就在最上面加一筆（新的在上）。
+# date 用 YYYY-MM-DD；venue、desc 可省略。
+# 只有一個雲端資料夾就填 url；同一場有多份資料（影片、簡報…）就用 links 一筆一筆列。
 #
 # - title: 研習名稱
 #   date: 2026-11-01
 #   venue: 主辦單位／地點
 #   desc: 一句話說明內容。
 #   url: https://drive.google.com/drive/folders/xxxxxxxx
+#   links:
+#     - title: 研習錄影
+#       url: https://drive.google.com/file/d/xxxxxxxx/view
 
-[]
+- title: Agent一下Codex一下
+  date: 2026-11-02
+  venue: 校內研習
+  links:
+    - title: 研習錄影
+      url: https://drive.google.com/file/d/1o7QRGWJzXBnAm5rkz7C6OoSxj1umEDuo/view?usp=share_link

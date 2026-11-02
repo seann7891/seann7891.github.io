@@ -3,10 +3,10 @@ title: Archive
 icon: fas fa-folder-open
 order: 8
 permalink: /archive/
-description: 校外研習的簡報與雲端資料。
+description: 研習的簡報、錄影與雲端資料。
 ---
 
-校外研習的簡報與雲端資料。
+研習的簡報、錄影與雲端資料。
 
 <div class="archive-list">
 {% for w in site.data.archive %}
@@ -18,7 +18,14 @@ description: 校外研習的簡報與雲端資料。
       {% if w.venue %}{{ w.venue | escape }}{% endif %}
     </p>
     {% if w.desc %}<p>{{ w.desc | escape }}</p>{% endif %}
-    <a class="btn btn-outline-primary btn-sm" href="{{ w.url | escape }}" target="_blank" rel="noopener">開啟雲端資料</a>
+    {% if w.url %}<a class="btn btn-outline-primary btn-sm" href="{{ w.url | escape }}" target="_blank" rel="noopener">開啟雲端資料</a>{% endif %}
+    {% if w.links %}
+    <ul class="archive-links">
+      {% for l in w.links %}
+      <li><a href="{{ l.url | escape }}" target="_blank" rel="noopener">{{ l.title | escape }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </div>
 {% endfor %}
 </div>
@@ -31,4 +38,5 @@ description: 校外研習的簡報與雲端資料。
 .archive-item { padding: 1rem 0; border-bottom: 1px solid var(--main-border-color); }
 .archive-item h3 { margin-top: 0; }
 .archive-meta { font-size: .85rem; opacity: .7; margin-bottom: .5rem; }
+.archive-links { margin-bottom: 0; }
 </style>
