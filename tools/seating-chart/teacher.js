@@ -1,4 +1,5 @@
 import { call, apiUrl, diagnose, BACKEND_VERSION } from './api.js';
+import { STORAGE_NAME, NOTICE } from './config.js';
 import {
   DEFAULT_LAYOUT, DEFAULT_CADRES, DEFAULT_TUTORS, MAX_COLUMNS, MAX_ROWS,
   parseLayout, formatLayout, totalRows, seatRow, seatKey, seatLabel, isValidSeat, hasSeat, seatCount,
@@ -8,8 +9,8 @@ import { renderMap } from './map.js';
 import { loadPhotos, savePhotos, clearPhotos, readPhotoFiles, readRosterPdf, fileToUploadPhoto } from './photos.js';
 
 const $ = id => document.getElementById(id);
-const PW_KEY = 'seating-chart:teacher';
-const PHOTO_PREF = 'seating-chart:show-photos';
+const PW_KEY = `${STORAGE_NAME}:teacher`;
+const PHOTO_PREF = `${STORAGE_NAME}:show-photos`;
 
 const state = {
   pw: '',
@@ -594,6 +595,7 @@ $('settingsForm').addEventListener('submit', async e => {
 
 // ---------- 架設 ----------
 
+$('configPath').textContent = `${location.pathname.replace(/^\/+/, '').replace(/[^/]*$/, '')}config.js`;
 $('apiInfo').textContent = apiUrl ? `後端網址：${apiUrl}` : '還沒設定後端網址（config.js 的 API_URL 是空的），請照下面步驟架設。';
 $('ping').addEventListener('click', async () => {
   setMsg($('pingMsg'), '測試中…');
@@ -618,6 +620,10 @@ $('loginForm').addEventListener('submit', e => {
 });
 
 (async () => {
+  if (NOTICE) {
+    $('notice').textContent = NOTICE;
+    $('notice').hidden = false;
+  }
   $('showPhotos').checked = store('localStorage', PHOTO_PREF) !== '0';
   state.photos = await loadPhotos();
   if (!apiUrl) {

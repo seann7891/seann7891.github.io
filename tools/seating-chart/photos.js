@@ -1,7 +1,8 @@
 // 照片只存在這台電腦的瀏覽器（IndexedDB），不會上傳。
 import { matchPdfRoster } from './core.js';
+import { STORAGE_NAME } from './config.js';
 
-const DB_NAME = 'seating-chart';
+const DB_NAME = STORAGE_NAME;
 const STORE = 'photos';
 const PHOTO_W = 160;
 const PHOTO_H = 200;

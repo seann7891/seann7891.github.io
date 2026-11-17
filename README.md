@@ -33,5 +33,6 @@ bundle exec jekyll s
 - Pages 的 Source 使用 GitHub Actions。
 - Physics_Playground 導覽與頁面由 `_tabs/playground.md` 統一提供，內容在 `_includes/playground-content.html`。
 - Tools／座位表（`tools/seating-chart/`）：學生端 `index.html`、教師端 `teacher.html`。後端是綁在教師 Google 試算表上的 Apps Script（`apps-script.gs`），部署後把網址填進 `config.js`。學生姓名與照片不放進 repo：名單存在試算表，照片只存在教師瀏覽器。架設步驟見教師端「架設說明」。
+- Tools／座位表研習示範版（`tools/seating-chart-demo/`）：整個資料夾是 `tools/seating-chart/` 的複本，只有 `config.js` 不同（另一份試算表的後端網址、瀏覽器儲存名稱、頁面上方的提示）。座位表改版後用 `rsync -a --exclude config.js tools/seating-chart/ tools/seating-chart-demo/` 同步，測試會檢查兩邊一致。
 - `url` 可覆蓋工具或模擬器的預設路徑。
 - 未設定公開 email、頭像或留言服務。

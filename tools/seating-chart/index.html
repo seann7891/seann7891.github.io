@@ -9,6 +9,7 @@
 </head>
 <body>
 <main class="page">
+  <p class="notice" id="notice" hidden></p>
   <header>
     <h1 id="title">座位表填寫</h1>
     <p class="muted small">輸入班級密碼，選自己的座號，在平面圖上點自己的座位，再勾選幹部和小老師職位。</p>
@@ -76,12 +77,13 @@
 
 <script type="module">
 import { call } from './api.js';
+import { STORAGE_NAME, NOTICE } from './config.js';
 import { parseLayout, seatLabel, isValidSeat, pad2, hasSeat } from './core.js';
 import { renderMap } from './map.js';
 import { fileToUploadPhoto } from './photos.js';
 
 const $ = id => document.getElementById(id);
-const STORE_KEY = 'seating-chart:student';
+const STORE_KEY = `${STORAGE_NAME}:student`;
 const state = { pw: '', config: null, columns: [], roster: [], entries: [], photoNos: [], photo: null, me: null, col: null, pos: null, flipped: false };
 
 function remember(data) {
@@ -327,6 +329,10 @@ $('photoFile').addEventListener('change', async e => {
 });
 $('reload').addEventListener('click', reload);
 
+if (NOTICE) {
+  $('notice').textContent = NOTICE;
+  $('notice').hidden = false;
+}
 const saved = recall();
 if (saved.pw) {
   $('classPw').value = saved.pw;

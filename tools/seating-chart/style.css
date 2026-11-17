@@ -92,6 +92,14 @@ button.ghost { background: transparent; }
 .msg.err { color: var(--danger); }
 .msg.ok { color: var(--ok); }
 .msg.warn { color: var(--warn); }
+.notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: .9rem;
+}
 
 /* ---------- 學生端平面圖 ---------- */
 .map {

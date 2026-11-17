@@ -9,6 +9,7 @@
 </head>
 <body>
 <main class="page wide">
+  <p class="notice no-print" id="notice" hidden></p>
   <header>
     <h1>座位表 · 教師端</h1>
     <p class="muted small" id="status"></p>
@@ -166,7 +167,7 @@
         <li>把程式碼第一段的 <code>TEACHER_PASSWORD</code> 改成你的教師密碼（至少 4 個字），按儲存。</li>
         <li>上方函式選單選 <code>setup</code>，按「執行」，依畫面授權。試算表會出現「設定」「名單」「填寫」三個工作表。</li>
         <li>按右上角「部署 → 新增部署作業」，類型選「網頁應用程式」。執行身分選「我」，誰可以存取選「所有人」，按「部署」。</li>
-        <li>複製「網頁應用程式」網址（結尾是 <code>/exec</code>），貼到網站 repo 的 <code>tools/seating-chart/config.js</code> 裡的 <code>API_URL</code>。</li>
+        <li>複製「網頁應用程式」網址（結尾是 <code>/exec</code>），貼到網站 repo 的 <code id="configPath">config.js</code> 裡的 <code>API_URL</code>。</li>
         <li>回到這頁登入，到「名單與照片」匯入學校的照片名冊 PDF，再到「設定」設定標題、班級密碼並開放填寫。</li>
         <li>把學生端網址和班級密碼給學生：<a href="./">學生填寫頁</a>。</li>
       </ol>
