@@ -184,3 +184,22 @@ test('page and Apps Script agree on the backend version', () => {
   const v = re => Number(re.exec(gs + api)?.[1]);
   assert.equal(v(/const BACKEND_VERSION = (\d+);/), Number(/export const BACKEND_VERSION = (\d+);/.exec(api)[1]));
 });
+
+test('workshop demo copy matches the tool and keeps its data separate', async () => {
+  const dir = name => new URL(`../tools/${name}/`, import.meta.url);
+  const list = name => fs.readdirSync(dir(name), { recursive: true })
+    .map(String)
+    .filter(f => fs.statSync(new URL(f, dir(name))).isFile())
+    .sort();
+  const files = list('seating-chart');
+  assert.deepEqual(list('seating-chart-demo'), files);
+  for (const f of files.filter(f => f !== 'config.js')) {
+    assert.ok(fs.readFileSync(new URL(f, dir('seating-chart'))).equals(fs.readFileSync(new URL(f, dir('seating-chart-demo')))),
+      `${f} differs; re-sync the demo copy (see README)`);
+  }
+  const main = await import('../tools/seating-chart/config.js');
+  const demo = await import('../tools/seating-chart-demo/config.js');
+  assert.notEqual(demo.STORAGE_NAME, main.STORAGE_NAME, 'photos and passwords saved in the browser must not be shared');
+  assert.notEqual(demo.API_URL, main.API_URL, 'the demo must not read the real class spreadsheet');
+  assert.ok(demo.NOTICE);
+});
